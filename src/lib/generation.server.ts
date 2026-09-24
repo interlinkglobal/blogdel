@@ -1,5 +1,4 @@
-// Generation providers: Groq (primary), Gemini (fallback 1), Cerebras (fallback 2),
-// then Lovable AI Gateway (Gemini) as the last-resort fallback.
+// Generation providers: Groq (primary), Gemini (fallback).
 //
 // Each provider attempt is classified and reported through `onProviderEvent`
 // (used by callers to write into provider_events, tied to the job id).
@@ -227,63 +226,19 @@ async function callGemini(input: Input): Promise<Output> {
   return { ...parsed, __provider: "gemini", __model: model };
 }
 
-async function callCerebras(input: Input): Promise<Output> {
-  const key = process.env.CEREBRAS_API_KEY;
-  if (!key) throw new ProviderError({ event_type: "provider_unavailable", error_code: "missing_key", message: "CEREBRAS_API_KEY not configured" });
-  const model = "llama-3.3-70b";
-  const res = await fetch("https://api.cerebras.ai/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-    body: JSON.stringify({
-      model, temperature: 0.6, response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: buildUserPrompt(input) },
-      ],
-    }),
-  }).catch((e) => { throw new ProviderError({ event_type: "provider_unavailable", error_code: "network_error", message: e?.message ?? "network error" }); });
-  const body = await httpJson(res);
-  const parsed = parseArticleJson(body?.choices?.[0]?.message?.content);
-  return { ...parsed, __provider: "cerebras", __model: model };
-}
-
-async function callLovableAI(input: Input, model: string): Promise<Output> {
-  const key = process.env.LOVABLE_API_KEY;
-  if (!key) throw new ProviderError({ event_type: "provider_unavailable", error_code: "missing_key", message: "LOVABLE_API_KEY not configured" });
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-    body: JSON.stringify({
-      model, temperature: 0.6, response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: buildUserPrompt(input) },
-      ],
-    }),
-  }).catch((e) => { throw new ProviderError({ event_type: "provider_unavailable", error_code: "network_error", message: e?.message ?? "network error" }); });
-  const body = await httpJson(res);
-  const parsed = parseArticleJson(body?.choices?.[0]?.message?.content);
-  return { ...parsed, __provider: "lovable-ai", __model: model };
-}
-
 export async function runGeneration(opts: GenerationOptions): Promise<Output> {
   const model = opts.model ?? "openai/gpt-oss-20b";
   const onEvent = opts.onProviderEvent;
 
-  // Provider order (fixed): Groq -> Gemini -> Cerebras -> Lovable AI.
+  // Provider order (fixed): Groq -> Gemini.
   const groq = await runProvider("groq", model, onEvent, () => callGroq(opts.input, model));
   if (groq) return finalize(groq, opts.input);
 
   const gemini = await runProvider("gemini", "gemini-2.5-flash", onEvent, () => callGemini(opts.input));
   if (gemini) return finalize(gemini, opts.input);
 
-  const cerebras = await runProvider("cerebras", "llama-3.3-70b", onEvent, () => callCerebras(opts.input));
-  if (cerebras) return finalize(cerebras, opts.input);
 
-  const lovable = await runProvider("lovable-ai", "google/gemini-2.5-flash", onEvent, () => callLovableAI(opts.input, "google/gemini-2.5-flash"));
-  if (lovable) return finalize(lovable, opts.input);
-
-  throw new Error("All providers failed. See provider_events for per-provider diagnostics.");
+  throw new Error("Groq and Gemini both failed. See provider_events for per-provider diagnostics.");
 }
 
 function finalize(out: Output, input: Input): Output {
