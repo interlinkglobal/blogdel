@@ -18,6 +18,8 @@ const searchSchema = z.object({
 const opts = (input: any) => queryOptions({
   queryKey: ["blogs", input],
   queryFn: () => listArticles({ data: input }),
+  staleTime: 0,
+  refetchOnMount: "always" as const,
 });
 
 export const Route = createFileRoute("/blogs/")({
@@ -27,7 +29,7 @@ export const Route = createFileRoute("/blogs/")({
   head: () => ({ meta: [{ title: "All articles — Blogdel" }, { name: "description", content: "Every article Blogdel has published, across all ten editorial desks." }] }),
   errorComponent: ({ error, reset }) => {
     const r = useRouter();
-    return <SiteShell><div className="text-center py-16"><p className="text-red-600">{error.message}</p><button className="mt-4 border border-foreground px-3 py-1 text-sm" onClick={() => { r.invalidate(); reset(); }}>Retry</button></div></SiteShell>;
+    return <SiteShell><div className="py-16 text-center"><p className="text-red-600">{error.message}</p><button className="mt-4 border border-foreground px-3 py-1 text-sm" onClick={() => { r.invalidate(); reset(); }}>Retry</button></div></SiteShell>;
   },
   notFoundComponent: () => <SiteShell>Not found</SiteShell>,
   component: BlogsIndex,
@@ -42,13 +44,13 @@ function BlogsIndex() {
 
   return (
     <SiteShell>
-      <div className="border-b border-border pb-6 mb-6">
+      <div className="mb-7 border-b border-border pb-6">
         <div className="eyebrow">Archive</div>
-        <h1 className="headline text-4xl mt-1">All articles</h1>
-        <p className="text-muted-foreground mt-2 text-sm">{data.count} published across all desks.</p>
+        <h1 className="headline mt-1 text-4xl">All articles</h1>
+        <p className="mt-2 text-sm text-muted-foreground">{data.count} published across all desks.</p>
       </div>
 
-      <form className="mb-6 flex gap-2" onSubmit={(e) => { e.preventDefault(); navigate({ search: (prev: any) => ({ ...prev, q: q || undefined, page: 1 }) }); }}>
+      <form className="mb-7 flex gap-2" onSubmit={(e) => { e.preventDefault(); navigate({ search: (prev: any) => ({ ...prev, q: q || undefined, page: 1 }) }); }}>
         <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search titles, keywords…" className="max-w-md" />
         <Button type="submit" variant="default">Search</Button>
         {(search.q || search.category || search.type) && (
@@ -56,16 +58,20 @@ function BlogsIndex() {
         )}
       </form>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        {(data.rows as unknown as ArticleCardData[]).map(a => <ArticleCard key={a.id} a={a} />)}
+      <div className="grid gap-px border border-border bg-border md:grid-cols-2 xl:grid-cols-3">
+        {(data.rows as unknown as ArticleCardData[]).map(a => (
+          <div key={a.id} className="bg-background">
+            <ArticleCard a={a} />
+          </div>
+        ))}
       </div>
-      {data.rows.length === 0 && <p className="text-center py-16 text-muted-foreground">No matches.</p>}
+      {data.rows.length === 0 && <p className="py-16 text-center text-muted-foreground">No matches.</p>}
 
       {totalPages > 1 && (
         <div className="mt-10 flex justify-center gap-2 text-sm">
           {Array.from({ length: totalPages }).slice(0, 12).map((_, i) => (
-            <Link key={i} to="/blogs" search={{ ...search, page: i+1 } as any}
-              className={`px-3 py-1 border border-border ${data.page === i+1 ? "bg-foreground text-background" : "hover:bg-muted"}`}>{i+1}</Link>
+            <Link key={i} to="/blogs" search={{ ...search, page: i + 1 } as any}
+              className={`border border-border px-3 py-1 ${data.page === i + 1 ? "bg-foreground text-background" : "hover:bg-muted"}`}>{i + 1}</Link>
           ))}
         </div>
       )}

@@ -9,18 +9,23 @@ import { z } from "zod";
 import { useState } from "react";
 
 const searchSchema = z.object({ q: z.string().optional().default(""), category: z.string().optional() });
+
 const opts = (q: string, cat?: string) => queryOptions({
   queryKey: ["search", q, cat],
   queryFn: () => searchArticles({ data: { q, category: cat } }),
-  enabled: q.length > 0,
+  staleTime: 0,
+  refetchOnMount: "always" as const,
 });
 
 export const Route = createFileRoute("/search")({
   validateSearch: searchSchema,
   loaderDeps: ({ search }) => search,
-  loader: ({ context, deps }) => deps.q ? context.queryClient.ensureQueryData(opts(deps.q, deps.category)) : Promise.resolve({ rows: [], q: "" }),
+  loader: ({ context, deps }) => context.queryClient.ensureQueryData(opts(deps.q ?? "", deps.category)),
   head: () => ({ meta: [{ title: "Search — Blogdel" }] }),
-  errorComponent: ({ error, reset }) => { const r = useRouter(); return <SiteShell><p className="text-red-600">{error.message}</p><button onClick={()=>{r.invalidate();reset();}}>retry</button></SiteShell>; },
+  errorComponent: ({ error, reset }) => {
+    const r = useRouter();
+    return <SiteShell><div className="py-16 text-center"><p className="text-red-600">{error.message}</p><button className="mt-4 border border-foreground px-3 py-1 text-sm" onClick={() => { r.invalidate(); reset(); }}>Retry</button></div></SiteShell>;
+  },
   notFoundComponent: () => <SiteShell>Not found</SiteShell>,
   component: SearchPage,
 });
@@ -29,21 +34,30 @@ function SearchPage() {
   const s = Route.useSearch();
   const nav = Route.useNavigate();
   const [q, setQ] = useState(s.q ?? "");
-  const data: any = s.q ? useSuspenseQuery(opts(s.q, s.category)).data : { rows: [] };
+  const { data } = useSuspenseQuery(opts(s.q ?? "", s.category));
+
   return (
     <SiteShell>
       <div className="mb-6">
         <div className="eyebrow">Search</div>
-        <h1 className="headline text-4xl mt-1">Find articles</h1>
+        <h1 className="headline mt-1 text-4xl">Find articles</h1>
       </div>
-      <form className="flex gap-2 mb-6" onSubmit={(e) => { e.preventDefault(); nav({ search: { q, category: s.category } }); }}>
+
+      <form className="mb-7 flex gap-2" onSubmit={(e) => { e.preventDefault(); nav({ search: { q, category: s.category } }); }}>
         <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Titles, keywords, topics…" className="max-w-md" />
         <Button type="submit">Search</Button>
       </form>
-      {s.q && <p className="text-sm text-muted-foreground mb-4">{data.rows.length} results for “{s.q}”.</p>}
-      <div className="grid gap-6 md:grid-cols-2">
-        {(data.rows as ArticleCardData[]).map((a) => <ArticleCard key={a.id} a={a} />)}
+
+      {s.q && <p className="mb-4 text-sm text-muted-foreground">{data.rows.length} results for “{s.q}”.</p>}
+
+      <div className="grid gap-px border border-border bg-border md:grid-cols-2 xl:grid-cols-3">
+        {(data.rows as ArticleCardData[]).map((a) => (
+          <div key={a.id} className="bg-background">
+            <ArticleCard a={a} />
+          </div>
+        ))}
       </div>
+      {s.q && data.rows.length === 0 && <p className="py-16 text-center text-muted-foreground">No matches.</p>}
     </SiteShell>
   );
 }
