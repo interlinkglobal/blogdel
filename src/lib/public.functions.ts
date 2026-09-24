@@ -2,6 +2,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
+import { ensureInitialSeed } from "./initial-seed.server";
 
 function serverPublic() {
   const url = process.env.SUPABASE_URL!;
@@ -31,6 +32,7 @@ function stripMany<T extends Record<string, any>>(rows: T[] | null | undefined):
 const REL = "categories(slug,label), authors(slug,display_name)";
 
 export const getHomepage = createServerFn({ method: "GET" }).handler(async () => {
+  await ensureInitialSeed();
   const sb = serverPublic();
   const [{ data: categories }, { data: articles }] = await Promise.all([
     sb.from("categories").select("id,slug,label,internal_label,description,sort_order").order("sort_order"),
@@ -42,6 +44,7 @@ export const getHomepage = createServerFn({ method: "GET" }).handler(async () =>
 export const listArticles = createServerFn({ method: "GET" })
   .inputValidator((d: { category?: string; author?: string; type?: string; q?: string; sort?: "newest"|"oldest"|"relevance"; page?: number; perPage?: number }) => d)
   .handler(async ({ data }) => {
+    await ensureInitialSeed();
     const sb = serverPublic();
     const perPage = Math.min(48, Math.max(1, data.perPage ?? 12));
     const page = Math.max(1, data.page ?? 1);
@@ -77,7 +80,7 @@ export const getArticleBySlug = createServerFn({ method: "GET" })
     const article = stripArticle(articleRaw as any);
     const [{ data: refs }, { data: related }] = await Promise.all([
       sb.from("article_references").select("*").eq("article_id", (article as any).id).order("position"),
-      sb.from("articles").select(`id,slug,title,description,published_at,reading_time_minutes, ${REL}`)
+      sb.from("articles").select(`id,slug,title,description,published_at,reading_time_minutes,featured_image_url,featured_image_alt,article_type,provider,model, ${REL}`)
         .eq("status","published").eq("category_id", (article as any).category_id).neq("id", (article as any).id)
         .order("published_at",{ ascending: false }).limit(4),
     ]);
