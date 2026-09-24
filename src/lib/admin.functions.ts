@@ -295,6 +295,8 @@ export const manualGenerate = createServerFn({ method: "POST" }).middleware([req
   };
   try {
     const article = await runGeneration({ input, categorySlug: cat.slug, onProviderEvent });
+    const { acquireFeaturedImage } = await import("./image-acquisition.server");
+    const image = await acquireFeaturedImage({ title: article.title, keywords: article.keywords, references: article.references });
     const insertRes = await context.supabase.from("articles").insert({
       source_item_id: sourceItem.id, category_id: cat.id, author_id: author.id, generation_job_id: job.id,
       slug: article.slug + "-" + Math.random().toString(36).slice(2,6),
@@ -303,6 +305,7 @@ export const manualGenerate = createServerFn({ method: "POST" }).middleware([req
       word_count: article.body_markdown.split(/\s+/).filter(Boolean).length,
       reading_time_minutes: Math.max(1, Math.round(article.body_markdown.split(/\s+/).filter(Boolean).length / 220)),
       keywords: article.keywords, provider: article.__provider, model: article.__model, is_demo: false,
+      featured_image_url: image?.url ?? null, featured_image_alt: image?.alt ?? article.title,
     }).select().single();
     if (insertRes.error) throw insertRes.error;
     // Insert refs
