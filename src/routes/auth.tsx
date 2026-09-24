@@ -12,20 +12,17 @@ import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 
 const searchSchema = z.object({ next: z.string().optional() });
-const REVIEW_EMAIL = "review@blogdel.dev";
-const REVIEW_PASSWORD = "Review#Password1";
-
 export const Route = createFileRoute("/auth")({
   validateSearch: searchSchema,
-  head: () => ({ meta: [{ title: "Sign in — Blogdel" }, { name: "description", content: "Sign in to the Blogdel newsroom." }] }),
+  head: () => ({ meta: [{ title: "Sign in — Blogdel" }, { name: "robots", content: "noindex,nofollow,noarchive" }] }),
   component: AuthPage,
 });
 
 function AuthPage() {
   const nav = useNavigate();
   const { next } = Route.useSearch();
-  const [email, setEmail] = useState(REVIEW_EMAIL);
-  const [password, setPassword] = useState(REVIEW_PASSWORD);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -62,14 +59,9 @@ function AuthPage() {
         <Card>
           <CardHeader>
             <CardTitle>Staff sign in</CardTitle>
-            <CardDescription>Staff sign-in, with read-only reviewer access for evaluators.</CardDescription>
+            <CardDescription>Authorized newsroom access only.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="mb-4 rounded-md border border-border bg-muted/40 p-3 text-sm">
-              <div className="font-medium">Reviewer credentials (read-only)</div>
-              <div className="mt-1 font-mono text-xs">{REVIEW_EMAIL}</div>
-              <div className="font-mono text-xs">{REVIEW_PASSWORD}</div>
-            </div>
             <Tabs defaultValue="signin">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="signin">Sign in</TabsTrigger>
