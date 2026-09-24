@@ -17,6 +17,7 @@ function admin() {
 async function runTick(reason: string): Promise<any> {
   const sb = admin();
   const { runGeneration } = await import("@/lib/generation.server");
+  const { acquireFeaturedImage } = await import("@/lib/image-acquisition.server");
   const { data: sys } = await sb.from("system_state").select("*").maybeSingle();
   if (!sys) return { ok: false, error: "no system_state" };
   await sb.from("system_state").update({ last_run_at: new Date().toISOString() }).eq("id", 1);
@@ -100,6 +101,7 @@ async function runTick(reason: string): Promise<any> {
     try {
       const article = await runGeneration({ input, categorySlug: catSlug, onProviderEvent });
       const words = article.body_markdown.split(/\s+/).filter(Boolean).length;
+      const image = await acquireFeaturedImage({ title: article.title, keywords: article.keywords, references: article.references });
       if (article.body_markdown.length < (sys.min_body_length ?? 500)) throw new Error("body too short");
       const slug = slugify(article.slug, { lower: true, strict: true }).slice(0, 80) + "-" + Math.random().toString(36).slice(2,6);
       const status = sys.mode === "publishing_paused" ? "review" : "published";
@@ -110,6 +112,7 @@ async function runTick(reason: string): Promise<any> {
         published_at: status === "published" ? new Date().toISOString() : null,
         word_count: words, reading_time_minutes: Math.max(1, Math.round(words / 220)),
         keywords: article.keywords, provider: article.__provider, model: article.__model, is_demo: false,
+        featured_image_url: image?.url ?? null, featured_image_alt: image?.alt ?? article.title,
       }).select().single();
       if (insErr) throw insErr;
       if (article.references?.length) {
