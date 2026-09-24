@@ -2,7 +2,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
-import { ensureInitialSeed } from "./initial-seed.server";
 
 function serverPublic() {
   const url = process.env.SUPABASE_URL!;
@@ -32,6 +31,7 @@ function stripMany<T extends Record<string, any>>(rows: T[] | null | undefined):
 const REL = "categories(slug,label), authors(slug,display_name)";
 
 export const getHomepage = createServerFn({ method: "GET" }).handler(async () => {
+  const { ensureInitialSeed } = await import("./initial-seed.server");
   await ensureInitialSeed();
   const sb = serverPublic();
   const [{ data: categories }, { data: articles }] = await Promise.all([
@@ -44,6 +44,7 @@ export const getHomepage = createServerFn({ method: "GET" }).handler(async () =>
 export const listArticles = createServerFn({ method: "GET" })
   .inputValidator((d: { category?: string; author?: string; type?: string; q?: string; sort?: "newest"|"oldest"|"relevance"; page?: number; perPage?: number }) => d)
   .handler(async ({ data }) => {
+    const { ensureInitialSeed } = await import("./initial-seed.server");
     await ensureInitialSeed();
     const sb = serverPublic();
     const perPage = Math.min(48, Math.max(1, data.perPage ?? 12));
