@@ -28,8 +28,8 @@ function decodeHtml(value: string) {
 
 function meta(html: string, names: string[]): string | null {
   for (const name of names) {
-    const p1 = new RegExp('<meta[^>]+(?:property|name)=["\\']' + name + '["\\'][^>]+content=["\\']([^"\\']+)["\\'][^>]*>', "i");
-    const p2 = new RegExp('<meta[^>]+content=["\\']([^"\\']+)["\\'][^>]+(?:property|name)=["\\']' + name + '["\\'][^>]*>', "i");
+    const p1 = new RegExp("<meta[^>]+(?:property|name)=[\\\"']" + name + "[\\\"'][^>]+content=[\\\"']([^\\\"']+)[\\\"'][^>]*>", "i");
+    const p2 = new RegExp("<meta[^>]+content=[\\\"']([^\\\"']+)[\\\"'][^>]+(?:property|name)=[\\\"']" + name + "[\\\"'][^>]*>", "i");
     const m = html.match(p1) || html.match(p2);
     if (m?.[1]) return decodeHtml(m[1].trim());
   }
