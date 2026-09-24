@@ -22,13 +22,13 @@ export interface ArticleCardData {
 
 const fallback = "/editorial-fallback.svg";
 
-function StoryImage({ a, eager = false }: { a: ArticleCardData; eager?: boolean }) {
+function StoryImage({ a }: { a: ArticleCardData }) {
   return (
     <img
       src={a.featured_image_url || fallback}
       alt={a.featured_image_alt || a.title}
-      loading={eager ? "eager" : "lazy"}
-      className="aspect-[16/10] w-full object-cover transition-transform duration-300 group-hover:scale-[1.015]"
+      loading="lazy"
+      className="h-48 w-full object-cover transition-transform duration-300 group-hover:scale-[1.015] sm:h-52"
       onError={(e) => {
         const img = e.currentTarget;
         if (!img.src.endsWith(fallback)) img.src = fallback;
@@ -37,46 +37,19 @@ function StoryImage({ a, eager = false }: { a: ArticleCardData; eager?: boolean 
   );
 }
 
-export function ArticleCard({ a, variant = "row" }: { a: ArticleCardData; variant?: "row" | "lead" | "compact" }) {
+export function ArticleCard({ a }: { a: ArticleCardData; variant?: "row" | "lead" | "compact" }) {
   const cat = a.categories;
   const author = a.authors;
   const minutes = a.reading_time_minutes ?? readingMinutes(a.word_count ?? 700);
 
-  if (variant === "compact") {
-    return (
-      <article className="group overflow-hidden border border-border bg-card">
-        <Link to="/blogs/$slug" params={{ slug: a.slug }} className="block overflow-hidden border-b border-border">
-          <StoryImage a={a} />
-        </Link>
-        <div className="p-4">
-          {cat && (
-            <Link to="/category/$slug" params={{ slug: cat.slug }} className="eyebrow">
-              {cat.label}
-            </Link>
-          )}
-          <Link to="/blogs/$slug" params={{ slug: a.slug }} className="mt-2 block">
-            <h3 className="headline text-xl leading-tight transition-colors group-hover:text-accent-ink">{a.title}</h3>
-          </Link>
-          <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
-            {author && <span>{author.display_name}</span>}
-            {author && <span>·</span>}
-            <span>{formatDate(a.published_at)}</span>
-            <span>·</span>
-            <span>{minutes} min read</span>
-          </div>
-        </div>
-      </article>
-    );
-  }
-
   return (
-    <article className="group flex h-full flex-col overflow-hidden border border-border bg-card">
-      <Link to="/blogs/$slug" params={{ slug: a.slug }} className="block overflow-hidden border-b border-border">
-        <StoryImage a={a} eager={variant === "lead"} />
+    <article className="group flex h-[31rem] flex-col overflow-hidden border border-border bg-card sm:h-[32rem]">
+      <Link to="/blogs/$slug" params={{ slug: a.slug }} className="block shrink-0 overflow-hidden border-b border-border">
+        <StoryImage a={a} />
       </Link>
 
-      <div className="flex flex-1 flex-col p-5">
-        <div className="flex items-center justify-between gap-3">
+      <div className="flex min-h-0 flex-1 flex-col p-5">
+        <div className="flex min-h-5 items-center justify-between gap-3">
           {cat ? (
             <Link to="/category/$slug" params={{ slug: cat.slug }} className="eyebrow">
               {cat.label}
@@ -88,18 +61,16 @@ export function ArticleCard({ a, variant = "row" }: { a: ArticleCardData; varian
         </div>
 
         <Link to="/blogs/$slug" params={{ slug: a.slug }} className="mt-3 block">
-          <h2 className={variant === "lead" ? "headline text-3xl leading-tight md:text-4xl" : "headline text-2xl leading-tight"}>
+          <h2 className="headline line-clamp-3 min-h-[4.65rem] text-2xl leading-[1.03] transition-colors group-hover:text-accent-ink">
             {a.title}
           </h2>
         </Link>
 
-        {a.description && (
-          <p className="mt-3 line-clamp-3 text-sm leading-6 text-muted-foreground">
-            {a.description}
-          </p>
-        )}
+        <p className="mt-3 line-clamp-3 min-h-[4.5rem] text-sm leading-6 text-muted-foreground">
+          {a.description || "Read the latest reporting and analysis from Blogdel."}
+        </p>
 
-        <div className="mt-5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+        <div className="mt-4 flex min-h-10 flex-wrap content-start items-start gap-x-2 gap-y-1 text-xs text-muted-foreground">
           {author && (
             <Link to="/authors/$slug" params={{ slug: author.slug }} className="hover:text-foreground">
               {author.display_name}
@@ -111,11 +82,11 @@ export function ArticleCard({ a, variant = "row" }: { a: ArticleCardData; varian
           <span>{minutes} min read</span>
         </div>
 
-        <div className="mt-auto pt-5">
+        <div className="mt-auto pt-4">
           <Link
             to="/blogs/$slug"
             params={{ slug: a.slug }}
-            className="inline-flex min-h-10 w-full items-center justify-center border border-foreground bg-foreground px-4 py-2 text-sm font-semibold text-background transition-colors hover:bg-transparent hover:text-foreground"
+            className="inline-flex h-10 w-full items-center justify-center border border-foreground bg-foreground px-4 text-sm font-semibold text-background transition-colors hover:bg-transparent hover:text-foreground"
           >
             Read
           </Link>

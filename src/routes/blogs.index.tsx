@@ -58,11 +58,9 @@ function BlogsIndex() {
         )}
       </form>
 
-      <div className="grid gap-px border border-border bg-border md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
         {(data.rows as unknown as ArticleCardData[]).map(a => (
-          <div key={a.id} className="bg-background">
-            <ArticleCard a={a} />
-          </div>
+          <ArticleCard key={a.id} a={a} />
         ))}
       </div>
       {data.rows.length === 0 && <p className="py-16 text-center text-muted-foreground">No matches.</p>}
