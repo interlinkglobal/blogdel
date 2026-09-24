@@ -1,5 +1,7 @@
 import { Link } from "@tanstack/react-router";
-import { Menu, Search } from "lucide-react";
+import { Download, Menu, Search } from "lucide-react";
+import { toast } from "sonner";
+import { usePwaInstall } from "@/hooks/use-pwa-install";
 import {
   Sheet,
   SheetContent,
@@ -22,6 +24,28 @@ const NAV = [
 ];
 
 export function SiteHeader() {
+  const { canInstall, installed, install } = usePwaInstall();
+
+  const handleInstall = async () => {
+    const result = await install();
+    if (result === "accepted") {
+      toast.success("Blogdel installed.");
+      return;
+    }
+    if (result === "dismissed") return;
+
+    const isAppleMobile = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    if (isAppleMobile) {
+      toast("Install Blogdel from Safari", {
+        description: "Tap Share, then Add to Home Screen.",
+      });
+    } else {
+      toast("Installation is not available yet", {
+        description: "Your browser may already have Blogdel installed or may not support app installation.",
+      });
+    }
+  };
+
   return (
     <header className="border-b border-border bg-background">
       <div className="mx-auto max-w-7xl px-4">
@@ -50,6 +74,16 @@ export function SiteHeader() {
                 <Link to="/disclosure" className="border-b border-border pb-3">AI disclosure</Link>
                 <Link to="/readme" className="border-b border-border pb-3">Read me</Link>
               </nav>
+              {!installed && (
+                <button
+                  type="button"
+                  onClick={handleInstall}
+                  className="mt-8 inline-flex h-11 w-full items-center justify-center gap-2 border border-foreground bg-foreground px-4 text-sm font-semibold text-background transition-colors hover:bg-transparent hover:text-foreground"
+                >
+                  <Download className="h-4 w-4" />
+                  {canInstall ? "Install Blogdel" : "Install app"}
+                </button>
+              )}
             </SheetContent>
           </Sheet>
         </div>

@@ -64,7 +64,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
+      { name: "theme-color", content: "#faf7ef" },
+      { name: "application-name", content: "Blogdel" },
+      { name: "mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "default" },
+      { name: "apple-mobile-web-app-title", content: "Blogdel" },
       { title: "Blogdel — Autonomous editorial publication" },
       { name: "description", content: "Ten desks. Disclosed models. Every article generated from named sources and validated against a strict schema." },
       { name: "author", content: "Blogdel" },
@@ -80,6 +86,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
     links: [
       { rel: "stylesheet", href: appCss },
+      { rel: "manifest", href: "/manifest.webmanifest" },
+      { rel: "icon", type: "image/png", sizes: "48x48", href: "/blogdel-48x48.png" },
+      { rel: "apple-touch-icon", sizes: "180x180", href: "/blogdel-180x180.png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "" },
       {
@@ -109,6 +118,18 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const router = useRouter();
+
+  useEffect(() => {
+    if ("serviceWorker" in navigator) {
+      const register = () => {
+        navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch((error) => {
+          console.error("Blogdel service worker registration failed", error);
+        });
+      };
+      if (document.readyState === "complete") register();
+      else window.addEventListener("load", register, { once: true });
+    }
+  }, []);
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
