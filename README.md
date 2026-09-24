@@ -32,7 +32,7 @@ review / schedule / publication
 
 - Collects and normalizes ideas from configured editorial sources.
 - Creates traceable delegation jobs instead of generating content invisibly.
-- Routes generation through **Groq → Gemini → Cerebras → Lovable AI**.
+- Routes generation through **Groq → Gemini**.
 - Records provider attempts and failures for operational visibility.
 - Validates generated articles with Zod before they enter the catalogue.
 - Enforces category-specific reference requirements.
@@ -55,7 +55,7 @@ That makes Blogdel less like “generate me a blog post” and more like a compa
 - **Supabase / PostgreSQL** for authentication, roles, editorial data, scheduling, and operational history
 - **Zod** for structured article validation
 - **Lovable** for hosting and managed application infrastructure
-- **Groq, Gemini, Cerebras, and Lovable AI** as the ordered generation provider chain
+- **Groq and Gemini** as the ordered generation provider chain
 
 ## The build team
 
