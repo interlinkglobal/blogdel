@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { sourceInputSchema } from "@/lib/article-schema";
-import slugify from "slugify";
+import slugify from "slugify";\nimport { getArticleFallbackImage } from "@/lib/fallback-images";
 
 function admin() {
   return createClient<Database>(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
@@ -189,7 +189,7 @@ async function runOne() {
       provider: article.__provider,
       model: article.__model,
       is_demo: false,
-      featured_image_url: image?.url ?? null,
+      featured_image_url: image?.url ?? getArticleFallbackImage("technology", slug),
       featured_image_alt: image?.alt ?? targetTitle,
     }).select().single();
 
