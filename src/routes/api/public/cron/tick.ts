@@ -43,7 +43,7 @@ function refsFor(catSlug: string, source: any) {
 
 async function processCategory(sb: ReturnType<typeof admin>, sys: any, category: any, reason: string) {
   const { runGeneration } = await import("@/lib/generation.server");
-  const { acquireFeaturedImage } = await import("@/lib/image-acquisition.server");
+  const { resolveFeaturedImage } = await import("@/lib/image-generation.server");
 
   const { data: source } = await sb.from("sources")
     .select("*")
@@ -153,7 +153,6 @@ async function processCategory(sb: ReturnType<typeof admin>, sys: any, category:
     if (article.body_markdown.length < (sys.min_body_length ?? 500)) throw new Error("body too short");
 
     const words = article.body_markdown.split(/\s+/).filter(Boolean).length;
-    const image = await acquireFeaturedImage({ title: article.title, keywords: article.keywords, references: article.references });
     const slug = slugify(article.slug, { lower: true, strict: true }).slice(0, 80) + "-" + Math.random().toString(36).slice(2, 6);
     const status = sys.mode === "publishing_paused" ? "review" : "published";
 
@@ -168,18 +167,22 @@ async function processCategory(sb: ReturnType<typeof admin>, sys: any, category:
       body_markdown: article.body_markdown,
       article_type: article.article_type,
       language: article.language,
-      status,
-      published_at: status === "published" ? new Date().toISOString() : null,
+      status: "review",
+      published_at: null,
       word_count: words,
       reading_time_minutes: Math.max(1, Math.round(words / 220)),
       keywords: article.keywords,
       provider: article.__provider,
       model: article.__model,
       is_demo: false,
-      featured_image_url: image?.url ?? null,
-      featured_image_alt: image?.alt ?? article.title,
+      featured_image_url: null,
+      featured_image_alt: article.title,
     }).select().single();
     if (insErr || !articleRow) throw insErr ?? new Error("article insert failed");
+
+    const image = await resolveFeaturedImage({ title: article.title, category: category.slug, body: article.body_markdown, articleId: articleRow.id, keywords: article.keywords, references: article.references }, sb);
+    const finalStatus = sys.mode === "publishing_paused" ? "review" : "published";
+    await (sb.from("articles") as any).update({ featured_image_url: image?.url ?? null, featured_image_alt: image?.alt ?? article.title, image_source_type: image?.sourceType ?? "editorial-fallback", image_provider: image?.provider ?? "blogdel", image_model: image?.model ?? null, status: finalStatus, published_at: finalStatus === "published" ? new Date().toISOString() : null }).eq("id", articleRow.id);
 
     if (article.references?.length) {
       await sb.from("article_references").insert(article.references.map((r, i) => ({
@@ -200,7 +203,7 @@ async function processCategory(sb: ReturnType<typeof admin>, sys: any, category:
       sb.from("sources").update({ last_run_at: now, collected_count: (source.collected_count ?? 0) + 1 }).eq("id", source.id),
     ]);
 
-    return { category: category.slug, ok: true, article: articleRow.id, status, latency_ms: Date.now() - started, reason };
+    return { category: category.slug, ok: true, article: articleRow.id, status: finalStatus, latency_ms: Date.now() - started, reason };
   } catch (e: any) {
     const now = new Date().toISOString();
     await Promise.all([
