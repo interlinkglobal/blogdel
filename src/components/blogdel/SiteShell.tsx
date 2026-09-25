@@ -75,7 +75,23 @@ export function SiteHeader() {
     <header className="border-b border-border bg-background">
       <div className="mx-auto max-w-7xl px-4">
         <div className="flex h-16 items-center justify-between border-b border-border">
-          <Link to="/" className="headline text-3xl md:text-4xl" aria-label="Blogdel home">Blogdel</Link>
+          <Link to="/" className="headline inline-flex items-center gap-[0.04em] text-3xl md:text-4xl" aria-label="Blogdel home">
+            <span
+              aria-hidden="true"
+              className="inline-block h-[0.9em] w-[0.9em] shrink-0 bg-foreground"
+              style={{
+                WebkitMaskImage: 'url("/blogdel-B.svg")',
+                maskImage: 'url("/blogdel-B.svg")',
+                WebkitMaskRepeat: "no-repeat",
+                maskRepeat: "no-repeat",
+                WebkitMaskPosition: "center",
+                maskPosition: "center",
+                WebkitMaskSize: "contain",
+                maskSize: "contain",
+              }}
+            />
+            <span>logdel</span>
+          </Link>
           <Sheet>
             <SheetTrigger asChild>
               <button type="button" className="inline-flex h-10 w-10 items-center justify-center border border-border bg-card transition-colors hover:border-foreground" aria-label="Open menu">
