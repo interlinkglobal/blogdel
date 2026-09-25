@@ -23,23 +23,29 @@ export interface ArticleCardData {
 
 function StoryImage({ a }: { a: ArticleCardData }) {
   const fallback = getArticleFallbackImage(a.categories?.slug, a.slug);
+  const original = a.featured_image_url?.trim() || "";
+  const useFallback = (img: HTMLImageElement) => {
+    const fallbackUrl = new URL(fallback, window.location.origin).href;
+    const genericUrl = new URL(getGenericEditorialFallback(), window.location.origin).href;
+    if (img.src !== fallbackUrl && img.src !== genericUrl) img.src = fallback;
+    else if (img.src !== genericUrl) img.src = getGenericEditorialFallback();
+  };
 
   return (
     <img
-      src={a.featured_image_url || fallback}
+      src={original || fallback}
       alt={a.featured_image_alt || a.title}
       loading="lazy"
+      data-blog-image
+      data-original-src={original}
       className="h-48 w-full object-cover transition-transform duration-300 group-hover:scale-[1.015] sm:h-52"
-      onError={(e) => {
-        const img = e.currentTarget;
-        const fallbackUrl = new URL(fallback, window.location.origin).href;
-        const genericUrl = new URL(getGenericEditorialFallback(), window.location.origin).href;
-        if (img.src !== fallbackUrl && img.src !== genericUrl) {
-          img.src = fallback;
-        } else if (img.src !== genericUrl) {
-          img.src = getGenericEditorialFallback();
-        }
+      onLoad={(e) => {
+        if (!original || original.startsWith("/fallback-images/")) return;
+        const matches = Array.from(document.querySelectorAll<HTMLImageElement>("img[data-blog-image]"))
+          .filter((img) => img.dataset.originalSrc === original);
+        if (matches[0] !== e.currentTarget) useFallback(e.currentTarget);
       }}
+      onError={(e) => useFallback(e.currentTarget)}
     />
   );
 }
@@ -50,51 +56,29 @@ export function ArticleCard({ a }: { a: ArticleCardData; variant?: "row" | "lead
   const minutes = a.reading_time_minutes ?? readingMinutes(a.word_count ?? 700);
 
   return (
-    <article className="group flex h-[31rem] flex-col overflow-hidden border border-border bg-card sm:h-[32rem]">
-      <Link to="/blogs/$slug" params={{ slug: a.slug }} className="block shrink-0 overflow-hidden border-b border-border">
+    <article className="group flex h-[35rem] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-soft transition-shadow hover:shadow-lift sm:h-[36rem]">
+      <Link to="/blogs/$slug" params={{ slug: a.slug }} className="block shrink-0 overflow-hidden rounded-t-2xl border-b border-border">
         <StoryImage a={a} />
       </Link>
-
       <div className="flex min-h-0 flex-1 flex-col p-5">
         <div className="flex min-h-5 items-center justify-between gap-3">
-          {cat ? (
-            <Link to="/category/$slug" params={{ slug: cat.slug }} className="eyebrow">
-              {cat.label}
-            </Link>
-          ) : (
-            <span className="eyebrow">{a.article_type}</span>
-          )}
+          {cat ? <Link to="/category/$slug" params={{ slug: cat.slug }} className="eyebrow">{cat.label}</Link> : <span className="eyebrow">{a.article_type}</span>}
           {a.is_demo && <Badge variant="outline">Demo</Badge>}
         </div>
-
         <Link to="/blogs/$slug" params={{ slug: a.slug }} className="mt-3 block">
-          <h2 className="headline line-clamp-3 min-h-[4.65rem] text-2xl leading-[1.03] transition-colors group-hover:text-accent-ink">
-            {a.title}
-          </h2>
+          <h2 className="headline line-clamp-3 min-h-[4.65rem] text-2xl leading-[1.03] transition-colors group-hover:text-muted-foreground">{a.title}</h2>
         </Link>
-
         <p className="mt-3 line-clamp-3 min-h-[4.5rem] text-sm leading-6 text-muted-foreground">
           {a.description || "Read the latest reporting and analysis from Blogdel."}
         </p>
-
         <div className="mt-4 flex min-h-10 flex-wrap content-start items-start gap-x-2 gap-y-1 text-xs text-muted-foreground">
-          {author && (
-            <Link to="/authors/$slug" params={{ slug: author.slug }} className="hover:text-foreground">
-              {author.display_name}
-            </Link>
-          )}
+          {author && <Link to="/authors/$slug" params={{ slug: author.slug }} className="hover:text-foreground">{author.display_name}</Link>}
           {author && <span>·</span>}
-          <span>{formatDate(a.published_at)}</span>
-          <span>·</span>
-          <span>{minutes} min read</span>
+          <span>{formatDate(a.published_at)}</span><span>·</span><span>{minutes} min read</span>
         </div>
-
-        <div className="mt-auto pt-4">
-          <Link
-            to="/blogs/$slug"
-            params={{ slug: a.slug }}
-            className="inline-flex h-10 w-full items-center justify-center border border-foreground bg-foreground px-4 text-sm font-semibold text-background transition-colors hover:bg-transparent hover:text-foreground"
-          >
+        <div className="mt-auto shrink-0 pt-4">
+          <Link to="/blogs/$slug" params={{ slug: a.slug }}
+            className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-foreground bg-foreground px-4 text-sm font-semibold text-background transition-colors hover:bg-transparent hover:text-foreground">
             Read
           </Link>
         </div>

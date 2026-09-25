@@ -1,14 +1,41 @@
 import { Link } from "@tanstack/react-router";
-import { Download, Menu, Search } from "lucide-react";
+import { Download, Menu, Monitor, Moon, Search, Sun } from "lucide-react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { usePwaInstall } from "@/hooks/use-pwa-install";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+
+type ThemeMode = "light" | "dark" | "system";
+const THEME_KEY = "blogdel-theme";
+
+function applyTheme(mode: ThemeMode) {
+  const dark = mode === "dark" || (mode === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  document.documentElement.classList.toggle("dark", dark);
+  document.documentElement.dataset.theme = mode;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", dark ? "#1a1a1a" : "#ffffff");
+}
+
+function useThemeMode() {
+  const [theme, setThemeState] = useState<ThemeMode>("system");
+  useEffect(() => {
+    const stored = localStorage.getItem(THEME_KEY);
+    const initial: ThemeMode = stored === "light" || stored === "dark" || stored === "system" ? stored : "system";
+    setThemeState(initial);
+    applyTheme(initial);
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const onChange = () => {
+      if ((localStorage.getItem(THEME_KEY) || "system") === "system") applyTheme("system");
+    };
+    media.addEventListener("change", onChange);
+    return () => media.removeEventListener("change", onChange);
+  }, []);
+  const setTheme = (mode: ThemeMode) => {
+    localStorage.setItem(THEME_KEY, mode);
+    setThemeState(mode);
+    applyTheme(mode);
+  };
+  return { theme, setTheme };
+}
 
 const NAV = [
   { slug: "technology", label: "Technology" },
@@ -25,6 +52,7 @@ const NAV = [
 
 export function SiteHeader() {
   const { canInstall, installed, install } = usePwaInstall();
+  const { theme, setTheme } = useThemeMode();
 
   const handleInstall = async () => {
     const result = await install();
@@ -33,12 +61,9 @@ export function SiteHeader() {
       return;
     }
     if (result === "dismissed") return;
-
     const isAppleMobile = /iphone|ipad|ipod/i.test(navigator.userAgent);
     if (isAppleMobile) {
-      toast("Install Blogdel from Safari", {
-        description: "Tap Share, then Add to Home Screen.",
-      });
+      toast("Install Blogdel from Safari", { description: "Tap Share, then Add to Home Screen." });
     } else {
       toast("Installation is not available yet", {
         description: "Your browser may already have Blogdel installed or may not support app installation.",
@@ -50,24 +75,31 @@ export function SiteHeader() {
     <header className="border-b border-border bg-background">
       <div className="mx-auto max-w-7xl px-4">
         <div className="flex h-16 items-center justify-between border-b border-border">
-          <Link to="/" className="headline text-3xl md:text-4xl" aria-label="Blogdel home">
-            Blogdel
-          </Link>
-
+          <Link to="/" className="headline text-3xl md:text-4xl" aria-label="Blogdel home">Blogdel</Link>
           <Sheet>
             <SheetTrigger asChild>
-              <button
-                type="button"
-                className="inline-flex h-10 w-10 items-center justify-center border border-border bg-card hover:border-foreground"
-                aria-label="Open menu"
-              >
+              <button type="button" className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-card transition-colors hover:border-foreground" aria-label="Open menu">
                 <Menu className="h-5 w-5" />
               </button>
             </SheetTrigger>
             <SheetContent side="right" className="w-[86vw] max-w-sm">
-              <SheetHeader>
-                <SheetTitle className="headline text-3xl">Blogdel</SheetTitle>
-              </SheetHeader>
+              <SheetHeader><SheetTitle className="headline text-3xl">Blogdel</SheetTitle></SheetHeader>
+              <div className="mt-8">
+                <div className="mb-2 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">Theme</div>
+                <div className="grid grid-cols-3 gap-1.5 rounded-2xl bg-muted p-1.5">
+                  {([
+                    ["light", "Light", Sun],
+                    ["dark", "Dark", Moon],
+                    ["system", "System", Monitor],
+                  ] as const).map(([mode, label, Icon]) => (
+                    <button key={mode} type="button" onClick={() => setTheme(mode)}
+                      className={`inline-flex h-10 items-center justify-center gap-1.5 rounded-xl text-xs font-medium transition-colors ${theme === mode ? "bg-background text-foreground shadow-soft" : "text-muted-foreground hover:text-foreground"}`}
+                      aria-pressed={theme === mode}>
+                      <Icon className="h-3.5 w-3.5" />{label}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <nav className="mt-8 flex flex-col gap-4 text-base">
                 <Link to="/blogs" className="border-b border-border pb-3">All articles</Link>
                 <Link to="/about" className="border-b border-border pb-3">About</Link>
@@ -75,13 +107,9 @@ export function SiteHeader() {
                 <Link to="/readme" className="border-b border-border pb-3">Read me</Link>
               </nav>
               {!installed && (
-                <button
-                  type="button"
-                  onClick={handleInstall}
-                  className="mt-8 inline-flex h-11 w-full items-center justify-center gap-2 border border-foreground bg-foreground px-4 text-sm font-semibold text-background transition-colors hover:bg-transparent hover:text-foreground"
-                >
-                  <Download className="h-4 w-4" />
-                  {canInstall ? "Install Blogdel" : "Install app"}
+                <button type="button" onClick={handleInstall}
+                  className="mt-8 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-foreground bg-foreground px-4 text-sm font-semibold text-background transition-colors hover:bg-transparent hover:text-foreground">
+                  <Download className="h-4 w-4" />{canInstall ? "Install Blogdel" : "Install app"}
                 </button>
               )}
             </SheetContent>
@@ -89,16 +117,10 @@ export function SiteHeader() {
         </div>
 
         <nav className="-mx-1 flex gap-2 overflow-x-auto border-b border-border px-1 py-3 text-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <Link to="/blogs" className="shrink-0 border border-border bg-card px-3 py-2 font-medium hover:border-foreground">
-            All
-          </Link>
+          <Link to="/blogs" className="shrink-0 rounded-full border border-border bg-card px-3 py-2 font-medium hover:border-foreground">All</Link>
           {NAV.map((n) => (
-            <Link
-              key={n.slug}
-              to="/category/$slug"
-              params={{ slug: n.slug }}
-              className="shrink-0 border border-border bg-card px-3 py-2 text-muted-foreground hover:border-foreground hover:text-foreground"
-            >
+            <Link key={n.slug} to="/category/$slug" params={{ slug: n.slug }}
+              className="shrink-0 rounded-full border border-border bg-card px-3 py-2 text-muted-foreground transition-colors hover:border-foreground hover:text-foreground">
               {n.label}
             </Link>
           ))}
@@ -108,19 +130,11 @@ export function SiteHeader() {
           <label className="relative min-w-0 flex-1">
             <span className="sr-only">Search Blogdel</span>
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <input
-              type="search"
-              name="q"
-              placeholder="Search articles"
-              className="h-10 w-full border border-border bg-card pl-9 pr-3 text-sm outline-none placeholder:text-muted-foreground focus:border-foreground"
-            />
+            <input type="search" name="q" placeholder="Search articles"
+              className="h-10 w-full rounded-xl border border-border bg-card pl-9 pr-3 text-sm outline-none placeholder:text-muted-foreground focus:border-foreground" />
           </label>
-          <button
-            type="submit"
-            className="h-10 shrink-0 border border-foreground bg-foreground px-4 text-sm font-semibold text-background hover:bg-transparent hover:text-foreground"
-          >
-            Search
-          </button>
+          <button type="submit"
+            className="h-10 shrink-0 rounded-xl border border-foreground bg-foreground px-4 text-sm font-semibold text-background transition-colors hover:bg-transparent hover:text-foreground">Search</button>
         </form>
       </div>
     </header>
@@ -134,9 +148,7 @@ export function SiteFooter() {
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
             <div className="headline text-2xl text-foreground">Blogdel</div>
-            <p className="mt-2 max-w-md">
-              Autonomous reporting and analysis from Interlink Media.
-            </p>
+            <p className="mt-2 max-w-md">Autonomous reporting and analysis from Interlink Media.</p>
           </div>
           <div className="flex flex-wrap gap-x-6 gap-y-2">
             <Link to="/about" className="hover:text-foreground">About</Link>
