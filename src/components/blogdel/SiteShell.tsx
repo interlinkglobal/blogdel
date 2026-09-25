@@ -1,6 +1,6 @@
-import { Link } from "@tanstack/react-router";
-import { Download, Menu, Monitor, Moon, Search, Sun } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { Download, Menu, Monitor, Moon, Search, Sun, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { usePwaInstall } from "@/hooks/use-pwa-install";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -53,6 +53,47 @@ const NAV = [
 export function SiteHeader() {
   const { canInstall, installed, install } = usePwaInstall();
   const { theme, setTheme } = useThemeMode();
+  const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState("");
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchInput = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const initial = new URLSearchParams(window.location.search).get("q") ?? "";
+    setSearchQuery(initial);
+    if (initial) requestAnimationFrame(() => searchInput.current?.focus());
+    return () => {
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+    };
+  }, []);
+
+  const navigateSearch = (value: string) => {
+    const q = value.trim();
+    navigate({
+      to: "/blogs",
+      search: q ? ({ q } as any) : ({} as any),
+      replace: true,
+    });
+  };
+
+  const updateSearch = (value: string) => {
+    setSearchQuery(value);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => navigateSearch(value), 140);
+  };
+
+  const clearSearch = () => {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    setSearchQuery("");
+    navigateSearch("");
+    requestAnimationFrame(() => searchInput.current?.focus());
+  };
+
+  const clearHeaderSearch = () => {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    setSearchQuery("");
+  };
 
   const handleInstall = async () => {
     const result = await install();
@@ -75,22 +116,9 @@ export function SiteHeader() {
     <header className="border-b border-border bg-background">
       <div className="mx-auto max-w-7xl px-4">
         <div className="flex h-16 items-center justify-between border-b border-border">
-          <Link to="/" className="headline inline-flex items-center gap-[0.04em] text-3xl md:text-4xl" aria-label="Blogdel home">
-            <span
-              aria-hidden="true"
-              className="inline-block h-[0.9em] w-[0.9em] shrink-0 bg-foreground"
-              style={{
-                WebkitMaskImage: 'url("/blogdel-B.svg")',
-                maskImage: 'url("/blogdel-B.svg")',
-                WebkitMaskRepeat: "no-repeat",
-                maskRepeat: "no-repeat",
-                WebkitMaskPosition: "center",
-                maskPosition: "center",
-                WebkitMaskSize: "contain",
-                maskSize: "contain",
-              }}
-            />
-            <span>logdel</span>
+          <Link to="/" onClick={clearHeaderSearch} className="headline inline-flex items-center gap-2 text-3xl md:text-4xl" aria-label="Blogdel home">
+            <img src="/blogdel-512x512.png" alt="" aria-hidden="true" className="h-8 w-8 shrink-0 object-contain dark:invert md:h-9 md:w-9" />
+            <span>Blogdel</span>
           </Link>
           <Sheet>
             <SheetTrigger asChild>
@@ -116,10 +144,10 @@ export function SiteHeader() {
                   ))}
                 </div>
               </div>
-              <nav className="mt-8 flex flex-col gap-4 text-base">
-                <Link to="/blogs" className="border-b border-border pb-3">All articles</Link>
-                <Link to="/about" className="border-b border-border pb-3">About</Link>
-                <Link to="/disclosure" className="border-b border-border pb-3">AI disclosure</Link>
+              <nav className="mt-8 flex flex-col gap-1 text-base">
+                <Link to="/blogs" onClick={clearHeaderSearch} className="rounded-lg px-3 py-2 transition-colors hover:bg-muted/70">All articles</Link>
+                <Link to="/about" className="rounded-lg px-3 py-2 transition-colors hover:bg-muted/70">About</Link>
+                <Link to="/disclosure" className="rounded-lg px-3 py-2 transition-colors hover:bg-muted/70">AI disclosure</Link>
               </nav>
               {!installed && (
                 <button type="button" onClick={handleInstall}
@@ -132,21 +160,45 @@ export function SiteHeader() {
         </div>
 
         <nav className="-mx-1 flex gap-2 overflow-x-auto border-b border-border px-1 py-3 text-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <Link to="/blogs" className="shrink-0 rounded-full border border-border bg-card px-3 py-2 font-medium hover:border-foreground">All</Link>
+          <Link to="/blogs" onClick={clearHeaderSearch} className="shrink-0 rounded-full border border-border bg-card px-3 py-2 font-medium hover:border-foreground">All</Link>
           {NAV.map((n) => (
-            <Link key={n.slug} to="/blogs" search={{ category: n.slug, page: 1 } as any}
+            <Link key={n.slug} to="/blogs" search={{ category: n.slug } as any} onClick={clearHeaderSearch}
               className="shrink-0 rounded-full border border-border bg-card px-3 py-2 text-muted-foreground transition-colors hover:border-foreground hover:text-foreground">
               {n.label}
             </Link>
           ))}
         </nav>
 
-        <form action="/search" method="get" className="flex gap-2 py-3">
+        <form
+          className="flex gap-2 py-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (searchTimer.current) clearTimeout(searchTimer.current);
+            navigateSearch(searchQuery);
+          }}
+        >
           <label className="relative min-w-0 flex-1">
             <span className="sr-only">Search Blogdel</span>
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <input type="search" name="q" placeholder="Search articles"
-              className="h-10 w-full border border-border bg-card pl-9 pr-3 text-sm outline-none placeholder:text-muted-foreground focus:border-foreground" />
+            <input
+              ref={searchInput}
+              type="text"
+              value={searchQuery}
+              onChange={(e) => updateSearch(e.target.value)}
+              placeholder="Search article titles"
+              autoComplete="off"
+              className="h-10 w-full border border-border bg-card pl-9 pr-10 text-sm outline-none placeholder:text-muted-foreground focus:border-foreground"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={clearSearch}
+                className="absolute right-2 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center text-foreground transition-opacity hover:opacity-60"
+                aria-label="Clear search"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
           </label>
           <button type="submit"
             className="h-10 shrink-0 border border-foreground bg-foreground px-4 text-sm font-semibold text-background transition-colors hover:bg-transparent hover:text-foreground">Search</button>

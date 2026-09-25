@@ -42,13 +42,65 @@ export const getHomepage = createServerFn({ method: "GET" }).handler(async () =>
 });
 
 export const listArticles = createServerFn({ method: "GET" })
-  .inputValidator((d: { category?: string; author?: string; type?: string; q?: string; sort?: "newest"|"oldest"|"relevance"; page?: number; perPage?: number }) => d)
+  .inputValidator((d: { category?: string; author?: string; type?: string; q?: string; sort?: "newest"|"oldest"|"relevance"; cursor?: string; perPage?: number }) => d)
   .handler(async ({ data }) => {
     const { ensureInitialSeed } = await import("./initial-seed.server");
     await ensureInitialSeed();
     const sb = serverPublic();
     const perPage = Math.min(48, Math.max(1, data.perPage ?? 12));
-    const page = Math.max(1, data.page ?? 1);
+
+    let categoryId: string | undefined;
+    let authorId: string | undefined;
+
+    if (data.category) {
+      const { data: cat } = await sb.from("categories").select("id").eq("slug", data.category).maybeSingle();
+      if (!cat) return { rows: [] as any[], count: 0, perPage, nextCursor: null as string | null };
+      categoryId = cat.id;
+    }
+
+    if (data.author) {
+      const { data: au } = await sb.from("authors").select("id").eq("slug", data.author).maybeSingle();
+      if (!au) return { rows: [] as any[], count: 0, perPage, nextCursor: null as string | null };
+      authorId = au.id;
+    }
+
+    type FeedMeta = {
+      id: string;
+      category_id: string | null;
+      published_at: string | null;
+      created_at: string | null;
+    };
+
+    const meta: FeedMeta[] = [];
+    const batchSize = 1000;
+    let offset = 0;
+    let total = 0;
+
+    while (true) {
+      let query = sb.from("articles")
+        .select("id,category_id,published_at,created_at", { count: "exact" })
+        .eq("status", "published");
+
+      if (categoryId) query = query.eq("category_id", categoryId);
+      if (authorId) query = query.eq("author_id", authorId);
+      if (data.type) query = query.eq("article_type", data.type as never);
+      if (data.q?.trim()) query = query.ilike("title", `%${data.q.trim()}%`);
+
+      query = query
+        .order("published_at", { ascending: false })
+        .order("created_at", { ascending: false })
+        .range(offset, offset + batchSize - 1);
+
+      const { data: chunk, count, error } = await query;
+      if (error) throw error;
+
+      const rows = (chunk ?? []) as FeedMeta[];
+      meta.push(...rows);
+      total = count ?? meta.length;
+
+      if (rows.length < batchSize || meta.length >= total) break;
+      offset += batchSize;
+    }
 
     const isBalancedAllFeed =
       !data.category &&
@@ -57,36 +109,9 @@ export const listArticles = createServerFn({ method: "GET" })
       !(data.q && data.q.trim()) &&
       (!data.sort || data.sort === "newest");
 
+    let ordered = meta;
+
     if (isBalancedAllFeed) {
-      type FeedMeta = {
-        id: string;
-        category_id: string | null;
-        published_at: string | null;
-        created_at: string | null;
-      };
-
-      const meta: FeedMeta[] = [];
-      const batchSize = 1000;
-      let offset = 0;
-      let total = 0;
-
-      while (true) {
-        const { data: chunk, count, error } = await sb.from("articles")
-          .select("id,category_id,published_at,created_at", { count: "exact" })
-          .eq("status", "published")
-          .order("published_at", { ascending: false })
-          .order("created_at", { ascending: false })
-          .range(offset, offset + batchSize - 1);
-
-        if (error) throw error;
-        const rows = (chunk ?? []) as FeedMeta[];
-        meta.push(...rows);
-        total = count ?? meta.length;
-
-        if (rows.length < batchSize || meta.length >= total) break;
-        offset += batchSize;
-      }
-
       const groups = new Map<string, FeedMeta[]>();
       for (const row of meta) {
         const key = row.category_id ?? "uncategorized";
@@ -96,11 +121,10 @@ export const listArticles = createServerFn({ method: "GET" })
       }
 
       const cursors = new Map<string, number>();
-      const ordered: FeedMeta[] = [];
-      const timestamp = (row: FeedMeta) =>
-        new Date(row.published_at ?? row.created_at ?? 0).getTime();
+      const mixed: FeedMeta[] = [];
+      const timestamp = (row: FeedMeta) => new Date(row.published_at ?? row.created_at ?? 0).getTime();
 
-      while (ordered.length < meta.length) {
+      while (mixed.length < meta.length) {
         const round: FeedMeta[] = [];
         for (const [key, group] of groups) {
           const cursor = cursors.get(key) ?? 0;
@@ -108,50 +132,35 @@ export const listArticles = createServerFn({ method: "GET" })
           round.push(group[cursor]);
           cursors.set(key, cursor + 1);
         }
-        if (round.length === 0) break;
+        if (!round.length) break;
         round.sort((a, b) => timestamp(b) - timestamp(a));
-        ordered.push(...round);
+        mixed.push(...round);
       }
-
-      const startIndex = (page - 1) * perPage;
-      const pageIds = ordered.slice(startIndex, startIndex + perPage).map((row) => row.id);
-
-      if (pageIds.length === 0) {
-        return { rows: [] as any[], count: total, page, perPage };
-      }
-
-      const { data: pageRows, error: pageError } = await sb.from("articles")
-        .select(`*, ${REL}`)
-        .in("id", pageIds);
-
-      if (pageError) throw pageError;
-      const byId = new Map((pageRows ?? []).map((row: any) => [row.id, row]));
-      const rows = pageIds.map((id) => byId.get(id)).filter(Boolean) as any[];
-      return { rows: stripMany(rows), count: total, page, perPage };
+      ordered = mixed;
+    } else if (data.sort === "oldest") {
+      ordered = [...meta].reverse();
     }
 
-    let query = sb.from("articles").select(`*, ${REL}`, { count: "exact" }).eq("status","published");
-    if (data.category) {
-      const { data: cat } = await sb.from("categories").select("id").eq("slug", data.category).maybeSingle();
-      if (!cat) return { rows: [] as any[], count: 0, page, perPage };
-      query = query.eq("category_id", cat.id);
+    const cursorIndex = data.cursor ? ordered.findIndex((row) => row.id === data.cursor) : -1;
+    const startIndex = cursorIndex >= 0 ? cursorIndex + 1 : 0;
+    const slice = ordered.slice(startIndex, startIndex + perPage);
+    const pageIds = slice.map((row) => row.id);
+
+    if (!pageIds.length) {
+      return { rows: [] as any[], count: total, perPage, nextCursor: null as string | null };
     }
-    if (data.author) {
-      const { data: au } = await sb.from("authors").select("id").eq("slug", data.author).maybeSingle();
-      if (!au) return { rows: [] as any[], count: 0, page, perPage };
-      query = query.eq("author_id", au.id);
-    }
-    if (data.type) query = query.eq("article_type", data.type as never);
-    if (data.q && data.q.trim()) {
-      const tsq = data.q.trim().split(/\s+/).map(t=>t.replace(/[^a-z0-9]/gi,"")).filter(Boolean).join(" & ");
-      if (tsq) query = query.textSearch("search_tsv", tsq, { config: "english" });
-    }
-    if (data.sort === "oldest") query = query.order("published_at",{ ascending: true });
-    else query = query.order("published_at",{ ascending: false });
-    query = query.range((page-1)*perPage, page*perPage - 1);
-    const { data: rows, count, error } = await query;
-    if (error) throw error;
-    return { rows: stripMany(rows as any), count: count ?? 0, page, perPage };
+
+    const { data: pageRows, error: pageError } = await sb.from("articles")
+      .select(`*, ${REL}`)
+      .in("id", pageIds);
+
+    if (pageError) throw pageError;
+
+    const byId = new Map((pageRows ?? []).map((row: any) => [row.id, row]));
+    const rows = pageIds.map((id) => byId.get(id)).filter(Boolean) as any[];
+    const nextCursor = startIndex + pageIds.length < ordered.length ? pageIds[pageIds.length - 1] : null;
+
+    return { rows: stripMany(rows), count: total, perPage, nextCursor };
   });
 
 export const getArticleBySlug = createServerFn({ method: "GET" })

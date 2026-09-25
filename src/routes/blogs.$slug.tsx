@@ -11,7 +11,8 @@ import { Link } from "@tanstack/react-router";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Info } from "lucide-react";
-import { getArticleFallbackImage, getGenericEditorialFallback } from "@/lib/fallback-images";
+import { getArticleFallbackImage } from "@/lib/fallback-images";
+import { EditorialImage } from "@/components/blogdel/EditorialImage";
 
 const opts = (slug: string) => queryOptions({
   queryKey: ["article", slug],
@@ -29,7 +30,7 @@ export const Route = createFileRoute("/blogs/$slug")({
     if (!a) return { meta: [{ title: "Article — Blogdel" }] };
     return {
       meta: [
-        { title: `${a.title} — Blogdel` },
+        { title: `${a.title} | Blogdel` },
         { name: "description", content: a.description ?? "" },
         { property: "og:title", content: a.title },
         { property: "og:description", content: a.description ?? "" },
@@ -61,7 +62,7 @@ function BlogDetail() {
       <article className="mx-auto max-w-3xl">
         <div className="mb-2">
           {article.categories && (
-            <Link to="/blogs" search={{ category: article.categories.slug, page: 1 } as any} className="eyebrow">{article.categories.label}</Link>
+            <Link to="/blogs" search={{ category: article.categories.slug } as any} className="eyebrow">{article.categories.label}</Link>
           )}
         </div>
         <h1 className="headline text-4xl md:text-5xl">{article.title}</h1>
@@ -78,21 +79,12 @@ function BlogDetail() {
         </div>
 
         <figure className="mt-8 overflow-hidden border border-border">
-          <img
-            src={article.featured_image_url || getArticleFallbackImage(article.categories?.slug, article.slug)}
+          <EditorialImage
+            src={article.featured_image_url}
+            categorySlug={article.categories?.slug}
+            articleKey={article.slug}
             alt={article.featured_image_alt || article.title}
             className="aspect-[16/9] w-full object-cover"
-            onError={(e) => {
-              const img = e.currentTarget;
-              const fallback = getArticleFallbackImage(article.categories?.slug, article.slug);
-              const fallbackUrl = new URL(fallback, window.location.origin).href;
-              const genericUrl = new URL(getGenericEditorialFallback(), window.location.origin).href;
-              if (img.src !== fallbackUrl && img.src !== genericUrl) {
-                img.src = fallback;
-              } else if (img.src !== genericUrl) {
-                img.src = getGenericEditorialFallback();
-              }
-            }}
           />
         </figure>
 

@@ -62,9 +62,9 @@ function stableIndex(value: string, length: number) {
 }
 
 export function getArticleFallbackImage(categorySlug?: string | null, articleKey?: string | null) {
-  if (!categorySlug) return GENERIC_FALLBACK;
+  if (!categorySlug) return null;
   const options = FALLBACKS[categorySlug.toLowerCase()];
-  if (!options?.length) return GENERIC_FALLBACK;
+  if (!options?.length) return null;
   return options[stableIndex(articleKey || categorySlug, options.length)];
 }
 

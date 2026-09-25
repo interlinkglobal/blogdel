@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { formatDate, readingMinutes } from "@/lib/blogdel";
 import { Badge } from "@/components/ui/badge";
-import { getArticleFallbackImage, getGenericEditorialFallback } from "@/lib/fallback-images";
+import { EditorialImage } from "@/components/blogdel/EditorialImage";
 
 export interface ArticleCardData {
   id: string;
@@ -22,30 +22,13 @@ export interface ArticleCardData {
 }
 
 function StoryImage({ a }: { a: ArticleCardData }) {
-  const fallback = getArticleFallbackImage(a.categories?.slug, a.slug);
-  const original = a.featured_image_url?.trim() || "";
-  const useFallback = (img: HTMLImageElement) => {
-    const fallbackUrl = new URL(fallback, window.location.origin).href;
-    const genericUrl = new URL(getGenericEditorialFallback(), window.location.origin).href;
-    if (img.src !== fallbackUrl && img.src !== genericUrl) img.src = fallback;
-    else if (img.src !== genericUrl) img.src = getGenericEditorialFallback();
-  };
-
   return (
-    <img
-      src={original || fallback}
+    <EditorialImage
+      src={a.featured_image_url}
+      categorySlug={a.categories?.slug}
+      articleKey={a.slug}
       alt={a.featured_image_alt || a.title}
-      loading="lazy"
-      data-blog-image
-      data-original-src={original}
       className="h-48 w-full object-cover transition-transform duration-300 group-hover:scale-[1.015] sm:h-52"
-      onLoad={(e) => {
-        if (!original || original.startsWith("/fallback-images/")) return;
-        const matches = Array.from(document.querySelectorAll<HTMLImageElement>("img[data-blog-image]"))
-          .filter((img) => img.dataset.originalSrc === original);
-        if (matches[0] !== e.currentTarget) useFallback(e.currentTarget);
-      }}
-      onError={(e) => useFallback(e.currentTarget)}
     />
   );
 }
@@ -62,7 +45,7 @@ export function ArticleCard({ a }: { a: ArticleCardData; variant?: "row" | "lead
       </Link>
       <div className="flex min-h-0 flex-1 flex-col p-5">
         <div className="flex min-h-5 items-center justify-between gap-3">
-          {cat ? <Link to="/blogs" search={{ category: cat.slug, page: 1 } as any} className="eyebrow">{cat.label}</Link> : <span className="eyebrow">{a.article_type}</span>}
+          {cat ? <Link to="/blogs" search={{ category: cat.slug } as any} className="eyebrow">{cat.label}</Link> : <span className="eyebrow">{a.article_type}</span>}
           {a.is_demo && <Badge variant="outline">Demo</Badge>}
         </div>
         <Link to="/blogs/$slug" params={{ slug: a.slug }} className="mt-3 block">
