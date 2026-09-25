@@ -2,7 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { sourceInputSchema } from "@/lib/article-schema";
-import slugify from "slugify";\nimport { getArticleFallbackImage } from "@/lib/fallback-images";
+import slugify from "slugify";
+import { getArticleFallbackImage } from "@/lib/fallback-images";
 
 function admin() {
   return createClient<Database>(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
