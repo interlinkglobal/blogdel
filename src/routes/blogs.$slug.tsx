@@ -61,7 +61,7 @@ function BlogDetail() {
       <article className="mx-auto max-w-3xl">
         <div className="mb-2">
           {article.categories && (
-            <Link to="/category/$slug" params={{ slug: article.categories.slug }} className="eyebrow">{article.categories.label}</Link>
+            <Link to="/blogs" search={{ category: article.categories.slug, page: 1 } as any} className="eyebrow">{article.categories.label}</Link>
           )}
         </div>
         <h1 className="headline text-4xl md:text-5xl">{article.title}</h1>
@@ -95,14 +95,6 @@ function BlogDetail() {
             }}
           />
         </figure>
-
-        <Alert className="mt-6 border-l-4 border-l-accent-ink">
-          <Info className="h-4 w-4" />
-          <AlertTitle>AI-generated</AlertTitle>
-          <AlertDescription>
-            This article was drafted by <span className="font-mono text-xs">{article.model ?? "an AI model"}</span> via <span className="font-mono text-xs">{article.provider ?? "provider"}</span> from the sources listed below. Read with a critical eye. <Link to="/disclosure" className="underline">Learn more</Link>.
-          </AlertDescription>
-        </Alert>
 
         <div className="prose-article mt-10">
           <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}
@@ -144,6 +136,14 @@ function BlogDetail() {
             </div>
           </section>
         ) : null}
+
+        <Alert className="mt-10 border-l-4 border-l-accent-ink">
+          <Info className="h-4 w-4" />
+          <AlertTitle>AI disclosure</AlertTitle>
+          <AlertDescription>
+            This article was drafted by <span className="font-mono text-xs">{article.model ?? "an AI model"}</span> via <span className="font-mono text-xs">{article.provider ?? "provider"}</span> from the sources listed above. Read with a critical eye. <Link to="/disclosure" className="underline">Read the full AI disclosure</Link>.
+          </AlertDescription>
+        </Alert>
       </article>
 
       {related?.length ? (

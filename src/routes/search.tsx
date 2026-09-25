@@ -44,8 +44,8 @@ function SearchPage() {
       </div>
 
       <form className="mb-7 flex gap-2" onSubmit={(e) => { e.preventDefault(); nav({ search: { q, category: s.category } }); }}>
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Titles, keywords, topics…" className="max-w-md" />
-        <Button type="submit">Search</Button>
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Titles, keywords, topics…" className="max-w-md rounded-none" />
+        <Button type="submit" className="rounded-none">Search</Button>
       </form>
 
       {s.q && <p className="mb-4 text-sm text-muted-foreground">{data.rows.length} results for “{s.q}”.</p>}

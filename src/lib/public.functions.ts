@@ -49,14 +49,97 @@ export const listArticles = createServerFn({ method: "GET" })
     const sb = serverPublic();
     const perPage = Math.min(48, Math.max(1, data.perPage ?? 12));
     const page = Math.max(1, data.page ?? 1);
+
+    const isBalancedAllFeed =
+      !data.category &&
+      !data.author &&
+      !data.type &&
+      !(data.q && data.q.trim()) &&
+      (!data.sort || data.sort === "newest");
+
+    if (isBalancedAllFeed) {
+      type FeedMeta = {
+        id: string;
+        category_id: string | null;
+        published_at: string | null;
+        created_at: string | null;
+      };
+
+      const meta: FeedMeta[] = [];
+      const batchSize = 1000;
+      let offset = 0;
+      let total = 0;
+
+      while (true) {
+        const { data: chunk, count, error } = await sb.from("articles")
+          .select("id,category_id,published_at,created_at", { count: "exact" })
+          .eq("status", "published")
+          .order("published_at", { ascending: false })
+          .order("created_at", { ascending: false })
+          .range(offset, offset + batchSize - 1);
+
+        if (error) throw error;
+        const rows = (chunk ?? []) as FeedMeta[];
+        meta.push(...rows);
+        total = count ?? meta.length;
+
+        if (rows.length < batchSize || meta.length >= total) break;
+        offset += batchSize;
+      }
+
+      const groups = new Map<string, FeedMeta[]>();
+      for (const row of meta) {
+        const key = row.category_id ?? "uncategorized";
+        const group = groups.get(key);
+        if (group) group.push(row);
+        else groups.set(key, [row]);
+      }
+
+      const cursors = new Map<string, number>();
+      const ordered: FeedMeta[] = [];
+      const timestamp = (row: FeedMeta) =>
+        new Date(row.published_at ?? row.created_at ?? 0).getTime();
+
+      while (ordered.length < meta.length) {
+        const round: FeedMeta[] = [];
+        for (const [key, group] of groups) {
+          const cursor = cursors.get(key) ?? 0;
+          if (cursor >= group.length) continue;
+          round.push(group[cursor]);
+          cursors.set(key, cursor + 1);
+        }
+        if (round.length === 0) break;
+        round.sort((a, b) => timestamp(b) - timestamp(a));
+        ordered.push(...round);
+      }
+
+      const startIndex = (page - 1) * perPage;
+      const pageIds = ordered.slice(startIndex, startIndex + perPage).map((row) => row.id);
+
+      if (pageIds.length === 0) {
+        return { rows: [] as any[], count: total, page, perPage };
+      }
+
+      const { data: pageRows, error: pageError } = await sb.from("articles")
+        .select(`*, ${REL}`)
+        .in("id", pageIds);
+
+      if (pageError) throw pageError;
+      const byId = new Map((pageRows ?? []).map((row: any) => [row.id, row]));
+      const rows = pageIds.map((id) => byId.get(id)).filter(Boolean) as any[];
+      return { rows: stripMany(rows), count: total, page, perPage };
+    }
+
     let query = sb.from("articles").select(`*, ${REL}`, { count: "exact" }).eq("status","published");
     if (data.category) {
       const { data: cat } = await sb.from("categories").select("id").eq("slug", data.category).maybeSingle();
-      if (cat) query = query.eq("category_id", cat.id);
+      if (!cat) return { rows: [] as any[], count: 0, page, perPage };
+      query = query.eq("category_id", cat.id);
     }
     if (data.author) {
       const { data: au } = await sb.from("authors").select("id").eq("slug", data.author).maybeSingle();
-      if (au) query = query.eq("author_id", au.id);
+      if (!au) return { rows: [] as any[], count: 0, page, perPage };
+      query = query.eq("author_id", au.id);
     }
     if (data.type) query = query.eq("article_type", data.type as never);
     if (data.q && data.q.trim()) {
@@ -66,7 +149,8 @@ export const listArticles = createServerFn({ method: "GET" })
     if (data.sort === "oldest") query = query.order("published_at",{ ascending: true });
     else query = query.order("published_at",{ ascending: false });
     query = query.range((page-1)*perPage, page*perPage - 1);
-    const { data: rows, count } = await query;
+    const { data: rows, count, error } = await query;
+    if (error) throw error;
     return { rows: stripMany(rows as any), count: count ?? 0, page, perPage };
   });
 

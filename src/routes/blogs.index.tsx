@@ -51,8 +51,8 @@ function BlogsIndex() {
       </div>
 
       <form className="mb-7 flex gap-2" onSubmit={(e) => { e.preventDefault(); navigate({ search: (prev: any) => ({ ...prev, q: q || undefined, page: 1 }) }); }}>
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search titles, keywords…" className="max-w-md" />
-        <Button type="submit" variant="default">Search</Button>
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search titles, keywords…" className="max-w-md rounded-none" />
+        <Button type="submit" variant="default" className="rounded-none">Search</Button>
         {(search.q || search.category || search.type) && (
           <Button type="button" variant="ghost" onClick={() => { setQ(""); navigate({ search: {} as any }); }}>Clear</Button>
         )}
@@ -66,12 +66,25 @@ function BlogsIndex() {
       {data.rows.length === 0 && <p className="py-16 text-center text-muted-foreground">No matches.</p>}
 
       {totalPages > 1 && (
-        <div className="mt-10 flex justify-center gap-2 text-sm">
-          {Array.from({ length: totalPages }).slice(0, 12).map((_, i) => (
-            <Link key={i} to="/blogs" search={{ ...search, page: i + 1 } as any}
-              className={`border border-border px-3 py-1 ${data.page === i + 1 ? "bg-foreground text-background" : "hover:bg-muted"}`}>{i + 1}</Link>
-          ))}
-        </div>
+        <nav className="mt-10 flex flex-wrap items-center justify-center gap-2 text-sm" aria-label="Article pagination">
+          {data.page > 1 && (
+            <>
+              <Link to="/blogs" search={{ ...search, page: 1 } as any}
+                className="border border-border px-3 py-1 hover:bg-muted">First</Link>
+              <Link to="/blogs" search={{ ...search, page: data.page - 1 } as any}
+                className="border border-border px-3 py-1 hover:bg-muted">Previous</Link>
+            </>
+          )}
+          <span className="px-2 text-muted-foreground">Page {data.page} of {totalPages}</span>
+          {data.page < totalPages && (
+            <>
+              <Link to="/blogs" search={{ ...search, page: data.page + 1 } as any}
+                className="border border-border px-3 py-1 hover:bg-muted">Next</Link>
+              <Link to="/blogs" search={{ ...search, page: totalPages } as any}
+                className="border border-border px-3 py-1 hover:bg-muted">Last</Link>
+            </>
+          )}
+        </nav>
       )}
     </SiteShell>
   );
