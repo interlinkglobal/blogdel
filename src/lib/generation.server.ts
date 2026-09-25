@@ -184,24 +184,41 @@ function parseArticleJson(content: unknown): Output extends infer O ? any : neve
 async function callGroq(input: Input, model: string): Promise<Output> {
   const key = process.env.GROQ_API_KEY;
   if (!key) throw new ProviderError({ event_type: "provider_unavailable", error_code: "missing_key", message: "GROQ_API_KEY not configured" });
-  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-    body: JSON.stringify({
-      model, temperature: 0.6, response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: buildUserPrompt(input) },
-      ],
-    }),
-    signal: AbortSignal.timeout(30_000),
-  }).catch((e) => {
-    const name = e?.name;
-    if (name === "TimeoutError" || name === "AbortError") {
-      throw new ProviderError({ event_type: "timeout", error_code: "timeout", message: "Groq request timed out after 30s" });
+  const request = async (jsonMode: boolean) => {
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+      body: JSON.stringify({
+        model,
+        temperature: 0.6,
+        ...(jsonMode ? { response_format: { type: "json_object" } } : {}),
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: buildUserPrompt(input) },
+        ],
+      }),
+      signal: AbortSignal.timeout(30_000),
+    }).catch((e) => {
+      const name = e?.name;
+      if (name === "TimeoutError" || name === "AbortError") {
+        throw new ProviderError({ event_type: "timeout", error_code: "timeout", message: "Groq request timed out after 30s" });
+      }
+      throw new ProviderError({ event_type: "provider_unavailable", error_code: "network_error", message: e?.message ?? "network error" });
+    });
+    return res;
+  };
+
+  let res = await request(true);
+  if (!res.ok && res.status === 400) {
+    const bodyText = await res.text().catch(() => "");
+    if (bodyText.includes("json_validate_failed")) {
+      res = await request(false);
+    } else {
+      const cls = classifyHttpStatus(res.status);
+      throw new ProviderError({ ...cls, status_code: res.status, message: `HTTP ${res.status}: ${bodyText.slice(0, 400)}` });
     }
-    throw new ProviderError({ event_type: "provider_unavailable", error_code: "network_error", message: e?.message ?? "network error" });
-  });
+  }
+
   const body = await httpJson(res);
   const parsed = parseArticleJson(body?.choices?.[0]?.message?.content);
   return { ...parsed, __provider: "groq", __model: model };
