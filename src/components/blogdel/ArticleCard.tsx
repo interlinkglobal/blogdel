@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { formatDate, readingMinutes } from "@/lib/blogdel";
 import { Badge } from "@/components/ui/badge";
+import { getArticleFallbackImage, getGenericEditorialFallback } from "@/lib/fallback-images";
 
 export interface ArticleCardData {
   id: string;
@@ -20,9 +21,9 @@ export interface ArticleCardData {
   authors?: { slug: string; display_name: string } | null;
 }
 
-const fallback = "/editorial-fallback.svg";
-
 function StoryImage({ a }: { a: ArticleCardData }) {
+  const fallback = getArticleFallbackImage(a.categories?.slug, a.slug);
+
   return (
     <img
       src={a.featured_image_url || fallback}
@@ -31,7 +32,13 @@ function StoryImage({ a }: { a: ArticleCardData }) {
       className="h-48 w-full object-cover transition-transform duration-300 group-hover:scale-[1.015] sm:h-52"
       onError={(e) => {
         const img = e.currentTarget;
-        if (!img.src.endsWith(fallback)) img.src = fallback;
+        const fallbackUrl = new URL(fallback, window.location.origin).href;
+        const genericUrl = new URL(getGenericEditorialFallback(), window.location.origin).href;
+        if (img.src !== fallbackUrl && img.src !== genericUrl) {
+          img.src = fallback;
+        } else if (img.src !== genericUrl) {
+          img.src = getGenericEditorialFallback();
+        }
       }}
     />
   );

@@ -11,6 +11,7 @@ import { Link } from "@tanstack/react-router";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Info } from "lucide-react";
+import { getArticleFallbackImage, getGenericEditorialFallback } from "@/lib/fallback-images";
 
 const opts = (slug: string) => queryOptions({
   queryKey: ["article", slug],
@@ -34,7 +35,10 @@ export const Route = createFileRoute("/blogs/$slug")({
         { property: "og:description", content: a.description ?? "" },
         { property: "og:type", content: "article" },
         { name: "twitter:card", content: "summary_large_image" },
-        ...(a.featured_image_url ? [{ property: "og:image", content: a.featured_image_url }, { name: "twitter:image", content: a.featured_image_url }] : []),
+        ...(() => {
+          const image = a.featured_image_url || getArticleFallbackImage(a.categories?.slug, a.slug);
+          return image ? [{ property: "og:image", content: image }, { name: "twitter:image", content: image }] : [];
+        })(),
       ],
     };
   },
@@ -73,11 +77,24 @@ function BlogDetail() {
           {article.is_demo && <Badge variant="outline" className="ml-2">Demo article</Badge>}
         </div>
 
-        {article.featured_image_url && (
-          <figure className="mt-8 overflow-hidden border border-border">
-            <img src={article.featured_image_url} alt={article.featured_image_alt || article.title} className="aspect-[16/9] w-full object-cover" />
-          </figure>
-        )}
+        <figure className="mt-8 overflow-hidden border border-border">
+          <img
+            src={article.featured_image_url || getArticleFallbackImage(article.categories?.slug, article.slug)}
+            alt={article.featured_image_alt || article.title}
+            className="aspect-[16/9] w-full object-cover"
+            onError={(e) => {
+              const img = e.currentTarget;
+              const fallback = getArticleFallbackImage(article.categories?.slug, article.slug);
+              const fallbackUrl = new URL(fallback, window.location.origin).href;
+              const genericUrl = new URL(getGenericEditorialFallback(), window.location.origin).href;
+              if (img.src !== fallbackUrl && img.src !== genericUrl) {
+                img.src = fallback;
+              } else if (img.src !== genericUrl) {
+                img.src = getGenericEditorialFallback();
+              }
+            }}
+          />
+        </figure>
 
         <Alert className="mt-6 border-l-4 border-l-accent-ink">
           <Info className="h-4 w-4" />
