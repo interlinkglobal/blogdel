@@ -78,7 +78,7 @@ export function SiteHeader() {
           <Link to="/" className="headline text-3xl md:text-4xl" aria-label="Blogdel home">Blogdel</Link>
           <Sheet>
             <SheetTrigger asChild>
-              <button type="button" className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-card transition-colors hover:border-foreground" aria-label="Open menu">
+              <button type="button" className="inline-flex h-10 w-10 items-center justify-center border border-border bg-card transition-colors hover:border-foreground" aria-label="Open menu">
                 <Menu className="h-5 w-5" />
               </button>
             </SheetTrigger>
@@ -104,7 +104,6 @@ export function SiteHeader() {
                 <Link to="/blogs" className="border-b border-border pb-3">All articles</Link>
                 <Link to="/about" className="border-b border-border pb-3">About</Link>
                 <Link to="/disclosure" className="border-b border-border pb-3">AI disclosure</Link>
-                <Link to="/readme" className="border-b border-border pb-3">Read me</Link>
               </nav>
               {!installed && (
                 <button type="button" onClick={handleInstall}
@@ -119,7 +118,7 @@ export function SiteHeader() {
         <nav className="-mx-1 flex gap-2 overflow-x-auto border-b border-border px-1 py-3 text-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <Link to="/blogs" className="shrink-0 rounded-full border border-border bg-card px-3 py-2 font-medium hover:border-foreground">All</Link>
           {NAV.map((n) => (
-            <Link key={n.slug} to="/category/$slug" params={{ slug: n.slug }}
+            <Link key={n.slug} to="/blogs" search={{ category: n.slug, page: 1 } as any}
               className="shrink-0 rounded-full border border-border bg-card px-3 py-2 text-muted-foreground transition-colors hover:border-foreground hover:text-foreground">
               {n.label}
             </Link>
@@ -131,10 +130,10 @@ export function SiteHeader() {
             <span className="sr-only">Search Blogdel</span>
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input type="search" name="q" placeholder="Search articles"
-              className="h-10 w-full rounded-xl border border-border bg-card pl-9 pr-3 text-sm outline-none placeholder:text-muted-foreground focus:border-foreground" />
+              className="h-10 w-full border border-border bg-card pl-9 pr-3 text-sm outline-none placeholder:text-muted-foreground focus:border-foreground" />
           </label>
           <button type="submit"
-            className="h-10 shrink-0 rounded-xl border border-foreground bg-foreground px-4 text-sm font-semibold text-background transition-colors hover:bg-transparent hover:text-foreground">Search</button>
+            className="h-10 shrink-0 border border-foreground bg-foreground px-4 text-sm font-semibold text-background transition-colors hover:bg-transparent hover:text-foreground">Search</button>
         </form>
       </div>
     </header>

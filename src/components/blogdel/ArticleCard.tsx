@@ -62,7 +62,7 @@ export function ArticleCard({ a }: { a: ArticleCardData; variant?: "row" | "lead
       </Link>
       <div className="flex min-h-0 flex-1 flex-col p-5">
         <div className="flex min-h-5 items-center justify-between gap-3">
-          {cat ? <Link to="/category/$slug" params={{ slug: cat.slug }} className="eyebrow">{cat.label}</Link> : <span className="eyebrow">{a.article_type}</span>}
+          {cat ? <Link to="/blogs" search={{ category: cat.slug, page: 1 } as any} className="eyebrow">{cat.label}</Link> : <span className="eyebrow">{a.article_type}</span>}
           {a.is_demo && <Badge variant="outline">Demo</Badge>}
         </div>
         <Link to="/blogs/$slug" params={{ slug: a.slug }} className="mt-3 block">
