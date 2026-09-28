@@ -56,13 +56,22 @@ function BlogDetail() {
   const { data } = useSuspenseQuery(opts(slug));
   if (!data) return null;
   const { article, refs, related } = data as any;
+  const isRecipe = article.categories?.slug === "food" && article.keywords?.includes("food-recipes");
 
   return (
     <SiteShell>
       <article className="mx-auto max-w-3xl">
         <div className="mb-2">
           {article.categories && (
-            <Link to="/blogs" search={{ category: article.categories.slug } as any} className="eyebrow">{article.categories.label}</Link>
+            <div className="flex items-center gap-2">
+              <Link to="/blogs" search={{ category: article.categories.slug } as any} className="eyebrow">{article.categories.label}</Link>
+              {isRecipe && (
+                <>
+                  <span className="text-xs text-muted-foreground">/</span>
+                  <Link to="/blogs" search={{ category: "food", subcategory: "recipes" } as any} className="eyebrow">Recipes</Link>
+                </>
+              )}
+            </div>
           )}
         </div>
         <h1 className="headline text-4xl md:text-5xl">{article.title}</h1>
@@ -131,9 +140,13 @@ function BlogDetail() {
 
         <Alert className="mt-10 border-l-4 border-l-accent-ink">
           <Info className="h-4 w-4" />
-          <AlertTitle>AI disclosure</AlertTitle>
+          <AlertTitle>{isRecipe ? "Recipe guide disclosure" : "AI disclosure"}</AlertTitle>
           <AlertDescription>
-            This article was drafted by <span className="font-mono text-xs">{article.model ?? "an AI model"}</span> via <span className="font-mono text-xs">{article.provider ?? "provider"}</span> from the sources listed above. Read with a critical eye. <Link to="/disclosure" className="underline">Read the full AI disclosure</Link>.
+            {isRecipe ? (
+              <>This recipe guide adapts the One More Bite food collection and its source trail into Blogdel editorial context. It is a practical starting point, not a tested formula with fixed measurements. Compare trusted local recipes before cooking traditional versions.</>
+            ) : (
+              <>This article was drafted by <span className="font-mono text-xs">{article.model ?? "an AI model"}</span> via <span className="font-mono text-xs">{article.provider ?? "provider"}</span> from the sources listed above. Read with a critical eye. <Link to="/disclosure" className="underline">Read the full AI disclosure</Link>.</>
+            )}
           </AlertDescription>
         </Alert>
       </article>
