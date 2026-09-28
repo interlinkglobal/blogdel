@@ -5,7 +5,7 @@ import { ONE_MORE_BITE_URL, RECIPE_SEEDS, type RecipeSeed } from "@/lib/recipe-s
 const RECIPE_KEYWORD = "food-recipes";
 const RECIPE_PROVIDER = "blogdel-recipe-desk";
 const RECIPE_MODEL = "one-more-bite-adaptation-v1";
-const RECIPE_DATE_START = Date.UTC(2026, 0, 26, 12, 0, 0);
+const RECIPE_DATE_START = Date.UTC(2026, 0, 27, 12, 0, 0);
 
 function publishedAtForRecipe(index: number) {
   return new Date(RECIPE_DATE_START + (index - 1) * 86400000).toISOString();
