@@ -19,10 +19,19 @@ function serverPublic() {
   });
 }
 
-// Strip non-serializable / heavy columns before returning to the client.
+function sanitizePublicText<T>(value: T): T {
+  if (typeof value === "string") return value.replaceAll("—", "-") as T;
+  if (Array.isArray(value)) return value.map((item) => sanitizePublicText(item)) as T;
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value as Record<string, any>).map(([key, item]) => [key, sanitizePublicText(item)])) as T;
+  }
+  return value;
+}
+
+// Strip non-serializable / heavy columns and prohibited punctuation before returning to the client.
 function stripArticle<T extends Record<string, any>>(row: T): Omit<T, "search_tsv"> {
   const { search_tsv, ...rest } = row as any;
-  return rest;
+  return sanitizePublicText(rest);
 }
 function isFallbackImage(url: string | null | undefined) {
   return !!url && (url.startsWith("/fallback-images/") || url === "/editorial-fallback.svg");
@@ -201,7 +210,7 @@ export const getArticleBySlug = createServerFn({ method: "GET" })
         .eq("status","published").eq("category_id", (article as any).category_id).neq("id", (article as any).id)
         .order("published_at",{ ascending: false }).limit(4),
     ]);
-    return { article, refs: refs ?? [], related: related ?? [] };
+    return { article, refs: sanitizePublicText(refs ?? []), related: stripMany(related as any) };
   });
 
 export const getCategoryPage = createServerFn({ method: "GET" })
