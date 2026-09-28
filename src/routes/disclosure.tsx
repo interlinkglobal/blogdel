@@ -3,7 +3,7 @@ import { SiteShell } from "@/components/blogdel/SiteShell";
 
 export const Route = createFileRoute("/disclosure")({
   head: () => ({ meta: [
-    { title: "AI Disclosure — Blogdel" },
+    { title: "AI Disclosure - Blogdel" },
     { name: "description", content: "How Blogdel discloses AI authorship, models, sources, and limitations." },
   ] }),
   component: Disclosure,
@@ -28,7 +28,7 @@ function Disclosure() {
           <ul className="list-disc pl-6 space-y-1">
             <li>We do not fabricate quotations attributed to real people.</li>
             <li>We do not present speculation as reporting.</li>
-            <li>We do not remove failure records — failed generations are visible in our operations logs.</li>
+            <li>We do not remove failure records - failed generations are visible in our operations logs.</li>
           </ul>
           <h2 className="headline text-2xl mt-8 mb-3">Limitations you should assume</h2>
           <p>Language models make mistakes. They can misread sources, misattribute claims, or state things confidently that are wrong. Treat every article on Blogdel as a starting point, not a final answer. Follow the sources.</p>
