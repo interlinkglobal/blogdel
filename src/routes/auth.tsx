@@ -14,7 +14,7 @@ import { toast } from "sonner";
 const searchSchema = z.object({ next: z.string().optional() });
 export const Route = createFileRoute("/auth")({
   validateSearch: searchSchema,
-  head: () => ({ meta: [{ title: "Sign in — Blogdel" }, { name: "robots", content: "noindex,nofollow,noarchive" }] }),
+  head: () => ({ meta: [{ title: "Sign in | Blogdel" }, { name: "robots", content: "noindex,nofollow,noarchive" }] }),
   component: AuthPage,
 });
 
