@@ -11,6 +11,7 @@ const searchSchema = z.object({
   page: z.coerce.number().int().min(1).optional(),
   q: z.string().optional(),
   category: z.string().optional(),
+  subcategory: z.string().optional(),
   type: z.string().optional(),
 });
 
@@ -26,8 +27,9 @@ function BlogsIndex() {
   const feedInput = useMemo(() => ({
     q: search.q,
     category: search.category,
+    subcategory: search.subcategory,
     type: search.type,
-  }), [search.q, search.category, search.type]);
+  }), [search.q, search.category, search.subcategory, search.type]);
 
   const {
     data,
@@ -50,7 +52,7 @@ function BlogsIndex() {
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     staleTime: 0,
     refetchOnWindowFocus: true,
-    refetchInterval: !feedInput.q && !feedInput.category && !feedInput.type ? 5000 : false,
+    refetchInterval: !feedInput.q && !feedInput.category && !feedInput.subcategory && !feedInput.type ? 5000 : false,
     refetchIntervalInBackground: true,
   });
 
@@ -85,8 +87,19 @@ function BlogsIndex() {
     return <SiteShell><div className="py-16 text-center text-sm text-muted-foreground">{error instanceof Error ? error.message : "Unable to load articles."}</div></SiteShell>;
   }
 
+  const isRecipes = search.category === "food" && search.subcategory === "recipes";
+
   return (
     <SiteShell>
+      {isRecipes && (
+        <section className="mb-6 border-b border-border pb-5">
+          <p className="eyebrow">Food / Recipes</p>
+          <h1 className="headline mt-1 text-3xl md:text-4xl">Recipes</h1>
+          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+            245 food guides adapted from the One More Bite collection, with Blogdel context and practical cooking direction.
+          </p>
+        </section>
+      )}
       <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
         {rows.map((a) => <ArticleCard key={a.id} a={a} />)}
       </div>
