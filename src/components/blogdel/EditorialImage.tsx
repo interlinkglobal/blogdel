@@ -22,14 +22,24 @@ type EditorialImageProps = {
   articleKey?: string | null;
   alt: string;
   className?: string;
+  renditionWidth?: number;
 };
 
-export function EditorialImage({ src, categorySlug, articleKey, alt, className }: EditorialImageProps) {
+function accelerateFoodImage(url: string, width: number) {
+  const match = url.match(/^https:\/\/drive\.google\.com\/thumbnail\?id=([^&]+)/);
+  if (!match) return url;
+  let id = match[1];
+  try { id = decodeURIComponent(id); } catch {}
+  return `/api/public/food-image/${encodeURIComponent(id)}?w=${width}`;
+}
+
+export function EditorialImage({ src, categorySlug, articleKey, alt, className, renditionWidth = 1280 }: EditorialImageProps) {
   const fallback = useMemo(() => getArticleFallbackImage(categorySlug, articleKey), [categorySlug, articleKey]);
   const original = (src ?? "").trim();
   const usableOriginal = original && !original.includes("editorial-fallback") ? original : "";
+  const deliveryOriginal = usableOriginal ? accelerateFoodImage(usableOriginal, renditionWidth) : "";
   const startsAsFallback = !usableOriginal || usableOriginal.startsWith("/fallback-images/");
-  const [currentSrc, setCurrentSrc] = useState(usableOriginal || fallback || "");
+  const [currentSrc, setCurrentSrc] = useState(deliveryOriginal || fallback || "");
   const [usingFallback, setUsingFallback] = useState(startsAsFallback);
   const [loaded, setLoaded] = useState(false);
   const [showEditorial, setShowEditorial] = useState(false);
@@ -52,7 +62,7 @@ export function EditorialImage({ src, categorySlug, articleKey, alt, className }
       return;
     }
     if (usableOriginal) {
-      setCurrentSrc(usableOriginal);
+      setCurrentSrc(deliveryOriginal);
       setUsingFallback(usableOriginal.startsWith("/fallback-images/"));
     } else if (fallback) {
       setCurrentSrc(fallback);
@@ -62,7 +72,7 @@ export function EditorialImage({ src, categorySlug, articleKey, alt, className }
       setUsingFallback(true);
       setShowEditorial(true);
     }
-  }, [usableOriginal, fallback]);
+  }, [usableOriginal, deliveryOriginal, fallback]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -71,7 +81,7 @@ export function EditorialImage({ src, categorySlug, articleKey, alt, className }
       setShowEditorial(false);
       setLoaded(false);
       if (usableOriginal) {
-        setCurrentSrc(usableOriginal);
+        setCurrentSrc(deliveryOriginal);
         setUsingFallback(usableOriginal.startsWith("/fallback-images/"));
       } else if (fallback) {
         setCurrentSrc(fallback);
@@ -84,7 +94,7 @@ export function EditorialImage({ src, categorySlug, articleKey, alt, className }
       window.removeEventListener("offline", offline);
       window.removeEventListener("online", online);
     };
-  }, [usableOriginal, fallback]);
+  }, [usableOriginal, deliveryOriginal, fallback]);
 
   useEffect(() => {
     if (!usingFallback || loaded || showEditorial || !currentSrc) return;
@@ -99,6 +109,7 @@ export function EditorialImage({ src, categorySlug, articleKey, alt, className }
       src={currentSrc}
       alt={alt}
       loading="lazy"
+      decoding="async"
       data-blog-image
       data-original-src={!usingFallback ? usableOriginal : ""}
       className={className}
