@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { sourceInputSchema, REFERENCE_MINIMA } from "@/lib/article-schema";
 import slugify from "slugify";
+import { getArticleFallbackImage } from "@/lib/fallback-images";
 
 function admin() {
   return createClient<Database>(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
@@ -182,7 +183,32 @@ async function processCategory(sb: ReturnType<typeof admin>, sys: any, category:
 
     const image = await resolveFeaturedImage({ title: article.title, category: category.slug, body: article.body_markdown, articleId: articleRow.id, keywords: article.keywords, references: article.references }, sb);
     const finalStatus = sys.mode === "publishing_paused" ? "review" : "published";
-    await (sb.from("articles") as any).update({ featured_image_url: image?.url ?? null, featured_image_alt: image?.alt ?? article.title, image_source_type: image?.sourceType ?? "editorial-fallback", image_provider: image?.provider ?? "blogdel", image_model: image?.model ?? null, status: finalStatus, published_at: finalStatus === "published" ? new Date().toISOString() : null }).eq("id", articleRow.id);
+    const publishedAt = finalStatus === "published" ? new Date().toISOString() : null;
+    const imageUpdate = {
+      featured_image_url: image.url,
+      featured_image_alt: image.alt,
+      image_source_type: image.sourceType,
+      image_provider: image.provider,
+      image_model: image.model,
+      status: finalStatus,
+      published_at: publishedAt,
+    };
+    const { error: imageUpdateError } = await (sb.from("articles") as any).update(imageUpdate).eq("id", articleRow.id);
+    if (imageUpdateError?.code === "23505") {
+      const fallbackUrl = getArticleFallbackImage(category.slug, articleRow.id) ?? "/editorial-fallback.svg";
+      const { error: fallbackError } = await (sb.from("articles") as any).update({
+        featured_image_url: fallbackUrl,
+        featured_image_alt: `Editorial fallback for ${article.title}`,
+        image_source_type: "category-fallback",
+        image_provider: "blogdel",
+        image_model: null,
+        status: finalStatus,
+        published_at: publishedAt,
+      }).eq("id", articleRow.id);
+      if (fallbackError) throw fallbackError;
+    } else if (imageUpdateError) {
+      throw imageUpdateError;
+    }
 
     if (article.references?.length) {
       await sb.from("article_references").insert(article.references.map((r, i) => ({
