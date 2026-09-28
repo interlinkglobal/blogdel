@@ -31,7 +31,7 @@ function accelerateFoodImage(url: string, width: number) {
   if (!match) return url;
   let id = match[1];
   try { id = decodeURIComponent(id); } catch {}
-  return `/api/public/food-image/${encodeURIComponent(id)}?w=${width}`;
+  return `https://drive.google.com/thumbnail?id=${encodeURIComponent(id)}&sz=w${width}`;
 }
 
 export function EditorialImage({ src, categorySlug, articleKey, alt, className, renditionWidth = 1280, priority = false }: EditorialImageProps) {
