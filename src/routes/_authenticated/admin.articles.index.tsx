@@ -59,7 +59,7 @@ function ArticlesList() {
                 <td>{a.categories?.label}</td>
                 <td>{a.authors?.display_name}</td>
                 <td><Badge variant={a.status === "failed" ? "destructive" : "outline"}>{STATUS_LABELS[a.status] ?? a.status}</Badge></td>
-                <td className="text-xs">{a.published_at ? formatDateTime(a.published_at) : "—"}</td>
+                <td className="text-xs">{a.published_at ? formatDateTime(a.published_at) : "-"}</td>
                 <td className="whitespace-nowrap">
                   {a.status === "review" && <Button size="sm" onClick={() => setStatus(a.id, "published")}>Publish</Button>}
                   {a.status === "published" && <Button size="sm" variant="outline" onClick={() => setStatus(a.id, "archived")}>Archive</Button>}
