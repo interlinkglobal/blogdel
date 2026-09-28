@@ -101,7 +101,7 @@ function BlogsIndex() {
         </section>
       )}
       <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-        {rows.map((a) => <ArticleCard key={a.id} a={a} />)}
+        {rows.map((a, index) => <ArticleCard key={a.id} a={a} priority={index < 6} />)}
       </div>
 
       {rows.length === 0 && <p className="py-16 text-center text-muted-foreground">No matches.</p>}
