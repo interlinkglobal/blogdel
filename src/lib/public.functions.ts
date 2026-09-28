@@ -20,7 +20,7 @@ function serverPublic() {
 }
 
 function sanitizePublicText<T>(value: T): T {
-  if (typeof value === "string") return value.replaceAll("—", "-") as T;
+  if (typeof value === "string") return value.replaceAll("\u2014", "-") as T;
   if (Array.isArray(value)) return value.map((item) => sanitizePublicText(item)) as T;
   if (value && typeof value === "object") {
     return Object.fromEntries(Object.entries(value as Record<string, any>).map(([key, item]) => [key, sanitizePublicText(item)])) as T;
