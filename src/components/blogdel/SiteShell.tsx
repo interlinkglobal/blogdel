@@ -116,8 +116,7 @@ export function SiteHeader() {
     <header className="border-b border-border bg-background">
       <div className="mx-auto max-w-7xl px-4">
         <div className="flex h-16 items-center justify-between border-b border-border">
-          <Link to="/" onClick={clearHeaderSearch} className="headline inline-flex items-center gap-2 text-3xl md:text-4xl" aria-label="Blogdel home">
-            <img src="/blogdel-512x512.png" alt="" aria-hidden="true" className="h-8 w-8 shrink-0 object-contain dark:invert md:h-9 md:w-9" />
+          <Link to="/" onClick={clearHeaderSearch} className="headline inline-flex items-center text-3xl md:text-4xl" aria-label="Blogdel home">
             <span>Blogdel</span>
           </Link>
           <Sheet>
