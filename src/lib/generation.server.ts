@@ -134,7 +134,7 @@ async function runProvider(
   const started = Date.now();
   try {
     const out = await fn();
-    if (out === null) return null; // provider not configured — event already emitted by caller
+    if (out === null) return null; // provider not configured | event already emitted by caller
     await safeEmit(onEvent, {
       provider, model, event_type: "request_completed",
       status_code: 200, latency_ms: Date.now() - started,
