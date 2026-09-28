@@ -29,7 +29,7 @@ function DbPage() {
       <div className="mt-8">
         <div className="eyebrow mb-2">Stuck jobs (running &gt; 30m)</div>
         {data.stuck.length === 0 ? <p className="text-sm text-muted-foreground">None. 👏</p> : (
-          <ul className="text-sm">{data.stuck.map((s: any) => <li key={s.id} className="font-mono">{s.id} — started {s.started_at}</li>)}</ul>
+          <ul className="text-sm">{data.stuck.map((s: any) => <li key={s.id} className="font-mono">{s.id} - started {s.started_at}</li>)}</ul>
         )}
       </div>
     </>
