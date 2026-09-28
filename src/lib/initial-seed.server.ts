@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { acquireFeaturedImage } from "./image-acquisition.server";
+import { getArticleFallbackImage } from "./fallback-images";
 
 const CATEGORIES = [
   ["technology","Technology"],["health","Health"],["sports","Sports"],["politics","Politics"],
@@ -16,7 +17,7 @@ const SEEDS = [
     article_type: "analysis",
     keywords: ["Cwenga Sihle Peter","The Silent Ledger","economics","technology","institutions"],
     refs: [
-      { provider:"author-site", title:"Cwenga Sihle Peter — Book", url:"https://cwengapeter.info/book", authority:"primary" },
+      { provider:"author-site", title:"Cwenga Sihle Peter - Book", url:"https://cwengapeter.info/book", authority:"primary" },
       { provider:"book-site", title:"The Silent Ledger", url:"https://book.cwengapeter.info", authority:"primary" },
     ],
     body_markdown: `## A systems argument, not a technology slogan
@@ -268,8 +269,17 @@ export async function ensureInitialSeed() {
     const cat = catMap.get(s.category) as any;
     const author = authorMap.get(s.category + "-desk") as any;
     const words = s.body_markdown.split(/\s+/).filter(Boolean).length;
-    const image = images[i];
-    const { data: article, error } = await supabaseAdmin.from("articles").insert({
+    let image = images[i];
+    if (image?.url) {
+      const { data: existing, error: imageLookupError } = await supabaseAdmin.from("articles")
+        .select("id")
+        .eq("featured_image_url", image.url)
+        .limit(1);
+      if (imageLookupError) throw imageLookupError;
+      if (existing?.length) image = null;
+    }
+    const fallbackUrl = getArticleFallbackImage(s.category, s.slug) ?? "/editorial-fallback.svg";
+    const articlePayload = {
       category_id: cat.id,
       author_id: author.id,
       slug: s.slug,
@@ -279,8 +289,8 @@ export async function ensureInitialSeed() {
       article_type: s.article_type,
       language: "en",
       status: "published",
-      featured_image_url: image?.url ?? null,
-      featured_image_alt: image?.alt ?? s.title,
+      featured_image_url: image?.url ?? fallbackUrl,
+      featured_image_alt: image?.alt ?? `Editorial fallback for ${s.title}`,
       word_count: words,
       reading_time_minutes: Math.max(1, Math.round(words / 220)),
       keywords: s.keywords,
@@ -288,8 +298,14 @@ export async function ensureInitialSeed() {
       model: "gpt-5.6-sol",
       is_demo: false,
       published_at: new Date(Date.now() - i * 3600000).toISOString(),
-    } as any).select("id").single();
-    if (error) throw error;
+    } as any;
+    let { data: article, error } = await supabaseAdmin.from("articles").insert(articlePayload).select("id").single();
+    if (error?.code === "23505" && image?.url) {
+      articlePayload.featured_image_url = fallbackUrl;
+      articlePayload.featured_image_alt = `Editorial fallback for ${s.title}`;
+      ({ data: article, error } = await supabaseAdmin.from("articles").insert(articlePayload).select("id").single());
+    }
+    if (error || !article) throw error ?? new Error("article_insert_failed");
 
     await supabaseAdmin.from("article_references").insert(
       s.refs.map((r, position) => ({
