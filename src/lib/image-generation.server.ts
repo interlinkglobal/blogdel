@@ -1,4 +1,5 @@
 import { acquireFeaturedImage } from "@/lib/image-acquisition.server";
+import { getFoodImageCandidates } from "@/lib/food-image-library";
 
 export type FeaturedImage = {
   url: string; alt: string;
@@ -31,6 +32,47 @@ async function imageAlreadyUsed(sb: any, url: string, articleId: string) {
     return true;
   }
   return (data?.length ?? 0) > 0;
+}
+
+async function imageIsPublic(url: string) {
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      redirect: "follow",
+      headers: { range: "bytes=0-2047" },
+      signal: AbortSignal.timeout(8000),
+    });
+    const contentType = response.headers.get("content-type") || "";
+    return response.ok && contentType.startsWith("image/");
+  } catch {
+    return false;
+  }
+}
+
+async function curatedFoodImage(input: { title: string; category: string; articleId: string }, sb: any): Promise<FeaturedImage | null> {
+  if (input.category !== "food") return null;
+
+  const candidates = getFoodImageCandidates(`${input.articleId}:${input.title}`);
+  let availabilityChecks = 0;
+
+  for (const url of candidates) {
+    if (await imageAlreadyUsed(sb, url, input.articleId)) continue;
+
+    availabilityChecks += 1;
+    if (await imageIsPublic(url)) {
+      return {
+        url,
+        alt: `Editorial food image for ${input.title}`,
+        sourceType: "external",
+        provider: "google-drive-food-library",
+        model: null,
+      };
+    }
+
+    if (availabilityChecks >= 3) break;
+  }
+
+  return null;
 }
 
 async function generated(input: { title: string; category: string; body: string; articleId: string }, sb: any): Promise<FeaturedImage | null> {
@@ -73,6 +115,9 @@ export async function resolveFeaturedImage(input: {
   title: string; category: string; body: string; articleId: string;
   keywords?: string[] | null; references?: Array<{ url: string; title?: string | null }> | null;
 }, sb: any): Promise<FeaturedImage | null> {
+  const curatedFood = await curatedFoodImage(input, sb);
+  if (curatedFood) return curatedFood;
+
   const ai = await generated(input, sb);
   if (ai) return ai;
   const acquired = await acquireFeaturedImage({ title: input.title, keywords: input.keywords, references: input.references });
