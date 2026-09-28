@@ -30,8 +30,8 @@ function Overview() {
         <Card>
           <CardHeader><CardTitle className="text-sm eyebrow">Pipeline state</CardTitle></CardHeader>
           <CardContent className="text-sm space-y-2">
-            <Row k="Mode"><Badge>{s?.mode ?? "—"}</Badge></Row>
-            <Row k="Primary provider"><code className="text-xs">{s?.primary_provider ?? "—"}</code></Row>
+            <Row k="Mode"><Badge>{s?.mode ?? "-"}</Badge></Row>
+            <Row k="Primary provider"><code className="text-xs">{s?.primary_provider ?? "-"}</code></Row>
             <Row k="Runs at"><span>{s?.morning_hour}:00 · {s?.afternoon_hour}:00 · {s?.night_hour}:00</span></Row>
             <Row k="Daily target"><span>{s?.daily_target} (max {s?.daily_maximum})</span></Row>
             <Row k="Per-category cap"><span>{s?.per_category_max}</span></Row>
