@@ -31,8 +31,8 @@ function JobDetail() {
             <Row k="Category">{j.categories?.label}</Row>
             <Row k="Author">{j.authors?.display_name}</Row>
             <Row k="Attempts">{j.attempt_count}</Row>
-            <Row k="Started">{j.started_at ? formatDateTime(j.started_at) : "—"}</Row>
-            <Row k="Completed">{j.completed_at ? formatDateTime(j.completed_at) : "—"}</Row>
+            <Row k="Started">{j.started_at ? formatDateTime(j.started_at) : "-"}</Row>
+            <Row k="Completed">{j.completed_at ? formatDateTime(j.completed_at) : "-"}</Row>
             {j.failure_reason && <div className="mt-2 text-destructive text-xs whitespace-pre-wrap font-mono">{j.failure_reason}</div>}
           </CardContent>
         </Card>
