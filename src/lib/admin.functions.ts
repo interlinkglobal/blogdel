@@ -215,7 +215,7 @@ export const dbStats = createServerFn({ method: "GET" }).middleware([requireSupa
   return { counts, stuck: stuck ?? [] };
 });
 
-// Manual trigger — writes a source_item + queued job, then runs generation.
+// Manual trigger | writes a source_item + queued job, then runs generation.
 export const manualGenerate = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((d: any) =>
   z.object({
     category: z.string(),
