@@ -79,7 +79,7 @@ function ArticleAdmin() {
               <div><span className="text-muted-foreground">Words:</span> {a.word_count}</div>
               <div><span className="text-muted-foreground">Reading time:</span> {a.reading_time_minutes}m</div>
               <div><span className="text-muted-foreground">Author:</span> {a.authors?.display_name}</div>
-              <div><span className="text-muted-foreground">Published:</span> {a.published_at ? formatDateTime(a.published_at) : "—"}</div>
+              <div><span className="text-muted-foreground">Published:</span> {a.published_at ? formatDateTime(a.published_at) : "-"}</div>
               {a.is_demo && <Badge variant="outline">Demo</Badge>}
             </CardContent>
           </Card>
@@ -100,7 +100,7 @@ function ArticleAdmin() {
               {data.versions.length === 0 && <p className="text-muted-foreground">No versions yet.</p>}
               <ul className="space-y-1">
                 {data.versions.map((v: any) => (
-                  <li key={v.id} className="text-xs">v{v.version_number} · {formatDateTime(v.created_at)} — {v.change_reason ?? "no reason"}</li>
+                  <li key={v.id} className="text-xs">v{v.version_number} · {formatDateTime(v.created_at)} - {v.change_reason ?? "no reason"}</li>
                 ))}
               </ul>
             </CardContent>
