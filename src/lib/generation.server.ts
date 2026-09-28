@@ -63,7 +63,7 @@ STRICT: respond with a JSON object ONLY (no markdown, no commentary), matching t
   "keywords": ["up to 12 keywords"],
   "references": [ { "provider": "...", "title": "...", "url": "...", "authority": "primary|secondary|tertiary" } ]
 }
-Rules: never fabricate quotes attributed to real people, do not include placeholder text like TODO or LOREM, do not include the source prompt back in the body, always include the supplied references, keep description a plain sentence (no markdown), and use British/American English consistently.`;
+Rules: never fabricate quotes attributed to real people, do not include placeholder text like TODO or LOREM, do not include the source prompt back in the body, always include the supplied references, keep description a plain sentence (no markdown), never use em dashes, and use British/American English consistently.`;
 
 function buildUserPrompt(input: Input): string {
   return [
