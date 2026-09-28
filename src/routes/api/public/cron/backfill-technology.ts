@@ -133,7 +133,7 @@ async function runOne() {
   }
 
   const { runGeneration } = await import("@/lib/generation.server");
-  const { acquireFeaturedImage } = await import("@/lib/image-acquisition.server");
+  const { resolveFeaturedImage } = await import("@/lib/image-generation.server");
   const onProviderEvent = async (ev: any) => {
     try {
       await sb.from("provider_events").insert({
@@ -157,17 +157,8 @@ async function runOne() {
     const article = { ...generated, title: targetTitle };
     const words = article.body_markdown.split(/\s+/).filter(Boolean).length;
 
-    // Backfill images are acquired title-by-title as each article is written.
-    // We intentionally omit reference-page images here so the search is driven
-    // by the individual article title/keywords instead of a repeated site OG image.
-    const image = await acquireFeaturedImage({
-      title: targetTitle,
-      keywords: article.keywords,
-      references: [],
-    });
-
     const slug = slugify(targetTitle, { lower: true, strict: true }).slice(0, 86) + "-" + String(item.external_id).slice(-4);
-    const status = sys.mode === "publishing_paused" ? "review" : "published";
+    const finalStatus = sys.mode === "publishing_paused" ? "review" : "published";
     const historicalDate = item.source_published_at ?? new Date().toISOString();
 
     const { data: articleRow, error: articleErr } = await sb.from("articles").insert({
@@ -181,8 +172,8 @@ async function runOne() {
       body_markdown: article.body_markdown,
       article_type: article.article_type,
       language: article.language,
-      status,
-      published_at: status === "published" ? historicalDate : null,
+      status: "review",
+      published_at: null,
       event_at: historicalDate,
       word_count: words,
       reading_time_minutes: Math.max(1, Math.round(words / 220)),
@@ -190,11 +181,49 @@ async function runOne() {
       provider: article.__provider,
       model: article.__model,
       is_demo: false,
-      featured_image_url: image?.url ?? getArticleFallbackImage("technology", slug),
-      featured_image_alt: image?.alt ?? targetTitle,
+      featured_image_url: null,
+      featured_image_alt: targetTitle,
     }).select().single();
 
     if (articleErr || !articleRow) throw articleErr ?? new Error("article_insert_failed");
+
+    // Reference-page images are intentionally omitted for this backfill so title search
+    // cannot repeatedly select the same source-site image.
+    const image = await resolveFeaturedImage({
+      title: targetTitle,
+      category: "technology",
+      body: article.body_markdown,
+      articleId: articleRow.id,
+      keywords: article.keywords,
+      references: [],
+    }, sb);
+
+    const publishedAt = finalStatus === "published" ? historicalDate : null;
+    const { error: imageUpdateError } = await (sb.from("articles") as any).update({
+      featured_image_url: image.url,
+      featured_image_alt: image.alt,
+      image_source_type: image.sourceType,
+      image_provider: image.provider,
+      image_model: image.model,
+      status: finalStatus,
+      published_at: publishedAt,
+    }).eq("id", articleRow.id);
+
+    if (imageUpdateError?.code === "23505") {
+      const fallbackUrl = getArticleFallbackImage("technology", articleRow.id) ?? "/editorial-fallback.svg";
+      const { error: fallbackError } = await (sb.from("articles") as any).update({
+        featured_image_url: fallbackUrl,
+        featured_image_alt: `Editorial fallback for ${targetTitle}`,
+        image_source_type: "category-fallback",
+        image_provider: "blogdel",
+        image_model: null,
+        status: finalStatus,
+        published_at: publishedAt,
+      }).eq("id", articleRow.id);
+      if (fallbackError) throw fallbackError;
+    } else if (imageUpdateError) {
+      throw imageUpdateError;
+    }
 
     if (article.references?.length) {
       await sb.from("article_references").insert(article.references.map((r: any, i: number) => ({
@@ -223,7 +252,7 @@ async function runOne() {
       ok: true,
       article: articleRow.id,
       title: targetTitle,
-      status,
+      status: finalStatus,
       historical_date: historicalDate,
       image_assigned: Boolean(image?.url),
       remaining: remaining ?? null,
