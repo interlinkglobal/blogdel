@@ -4,7 +4,7 @@ import { REFERENCE_MINIMA, CATEGORIES, ARTICLE_TYPES } from "@/lib/article-schem
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const Route = createFileRoute("/_authenticated/admin/conditions")({
-  head: () => ({ meta: [{ title: "Category conditions — Blogdel Admin" }] }),
+  head: () => ({ meta: [{ title: "Category conditions | Blogdel Admin" }] }),
   component: () => (
     <>
       <PageTitle eyebrow="Rules" title="Category conditions" description="Per-desk minimums a generation must meet before it can be validated." />
