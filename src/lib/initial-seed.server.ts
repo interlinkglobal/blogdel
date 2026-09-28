@@ -16,7 +16,7 @@ const SEEDS = [
     article_type: "analysis",
     keywords: ["Cwenga Sihle Peter","The Silent Ledger","economics","technology","institutions"],
     refs: [
-      { provider:"author-site", title:"Cwenga Sihle Peter — Book", url:"https://cwengapeter.info/book", authority:"primary" },
+      { provider:"author-site", title:"Cwenga Sihle Peter | Book", url:"https://cwengapeter.info/book", authority:"primary" },
       { provider:"book-site", title:"The Silent Ledger", url:"https://book.cwengapeter.info", authority:"primary" },
     ],
     body_markdown: `## A systems argument, not a technology slogan
