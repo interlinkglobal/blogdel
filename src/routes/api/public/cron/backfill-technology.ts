@@ -4,6 +4,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { sourceInputSchema } from "@/lib/article-schema";
 import slugify from "slugify";
 import { getArticleFallbackImage } from "@/lib/fallback-images";
+import { pendingTechnologyArchiveWork } from "@/lib/pending-archive-work";
 
 function admin() {
   return createClient<Database>(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
@@ -37,6 +38,64 @@ function referencesForTitle(title: string): Ref[] {
 
 async function runOne() {
   const sb = admin();
+
+  // Durable handoff from the missed 22:00 Technology archive run.
+  // When production DB access is restored, materialize missing manifest entries
+  // into source_items before claiming the next backfill item.
+  const { data: technologyCategory } = await sb.from("categories")
+    .select("id")
+    .eq("slug", "technology")
+    .maybeSingle();
+  const { data: evergreenSource } = technologyCategory
+    ? await sb.from("sources")
+        .select("id")
+        .eq("category_id", technologyCategory.id)
+        .eq("source_type", "evergreen")
+        .order("priority", { ascending: true })
+        .limit(1)
+        .maybeSingle()
+    : { data: null };
+
+  if (technologyCategory && evergreenSource) {
+    const ids = pendingTechnologyArchiveWork.entries.map((entry) => entry.external_id);
+    const { data: existing } = await sb.from("source_items")
+      .select("external_id")
+      .in("external_id", ids);
+    const existingIds = new Set((existing ?? []).map((row) => row.external_id).filter(Boolean));
+    const missing = pendingTechnologyArchiveWork.entries.filter((entry) => !existingIds.has(entry.external_id));
+
+    for (let offset = 0; offset < missing.length; offset += 25) {
+      const batch = missing.slice(offset, offset + 25).map((entry) => ({
+        category_id: technologyCategory.id,
+        source_id: evergreenSource.id,
+        external_id: entry.external_id,
+        source_published_at: entry.target_published_at,
+        status: "queued" as const,
+        prompt: [
+          `Write an original evergreen Blogdel technology article with this exact title: "${entry.title}".`,
+          "The output title must match exactly.",
+          "Explain mechanisms, trade offs, reliability, security, standards, and practical implications where relevant.",
+          "Do not invent quotations, statistics, studies, product announcements, or current events.",
+          "Do not use em dashes or robot, star, or sparkle icons.",
+        ].join("\n\n"),
+        context: { headline: entry.title, published_at: entry.target_published_at },
+        instructions: {
+          article_type: entry.article_type,
+          tone: "clear",
+          target_length: entry.target_length,
+          audience: "general",
+          freshness: "evergreen",
+          avoid: ["fabricated quotes", "unsupported current claims", "title drift", "marketing copy", "em dash", "robot icons", "star icons", "sparkle icons"],
+          pending_archive_work_id: pendingTechnologyArchiveWork.id,
+        },
+        refs: [],
+      }));
+      if (batch.length) {
+        const { error } = await sb.from("source_items").insert(batch);
+        if (error) throw error;
+      }
+    }
+  }
   const { data: sys } = await sb.from("system_state").select("*").maybeSingle();
   if (!sys) return { ok: false, error: "no_system_state" };
   if (sys.mode === "fully_paused" || sys.mode === "generation_paused") {
