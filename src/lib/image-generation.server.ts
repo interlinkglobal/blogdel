@@ -19,6 +19,20 @@ function promptFor(input: { title: string; category: string; body: string }) {
   ].join(" ");
 }
 
+async function imageAlreadyUsed(sb: any, url: string, articleId: string) {
+  const { data, error } = await sb
+    .from("articles")
+    .select("id")
+    .eq("featured_image_url", url)
+    .neq("id", articleId)
+    .limit(1);
+  if (error) {
+    console.error("[image-uniqueness]", error);
+    return true;
+  }
+  return (data?.length ?? 0) > 0;
+}
+
 async function generated(input: { title: string; category: string; body: string; articleId: string }, sb: any): Promise<FeaturedImage | null> {
   const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
   const token = process.env.CLOUDFLARE_AI_API_TOKEN;
@@ -62,6 +76,8 @@ export async function resolveFeaturedImage(input: {
   const ai = await generated(input, sb);
   if (ai) return ai;
   const acquired = await acquireFeaturedImage({ title: input.title, keywords: input.keywords, references: input.references });
-  if (acquired) return { url: acquired.url, alt: acquired.alt, sourceType: "external", provider: acquired.source, model: null };
+  if (acquired && !(await imageAlreadyUsed(sb, acquired.url, input.articleId))) {
+    return { url: acquired.url, alt: acquired.alt, sourceType: "external", provider: acquired.source, model: null };
+  }
   return { url: `/fallback-images/${input.category}-1.jpg`, alt: `Editorial fallback for ${input.title}`, sourceType: "category-fallback", provider: "blogdel", model: null };
 }
