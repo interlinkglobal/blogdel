@@ -27,7 +27,7 @@ export const Route = createFileRoute("/blogs/$slug")({
   },
   head: ({ loaderData }) => {
     const a: any = loaderData?.article;
-    if (!a) return { meta: [{ title: "Article — Blogdel" }] };
+    if (!a) return { meta: [{ title: "Article - Blogdel" }] };
     return {
       meta: [
         { title: `${a.title} | Blogdel` },
@@ -113,7 +113,7 @@ function BlogDetail() {
               {refs.map((r: any) => (
                 <li key={r.id}>
                   <a href={r.url} target="_blank" rel="noreferrer" className="text-accent-ink underline">{r.title}</a>
-                  <span className="text-muted-foreground"> — {r.provider} · {r.authority}</span>
+                  <span className="text-muted-foreground"> - {r.provider} · {r.authority}</span>
                 </li>
               ))}
             </ol>
