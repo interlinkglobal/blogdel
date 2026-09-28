@@ -63,7 +63,7 @@ STRICT: respond with a JSON object ONLY (no markdown, no commentary), matching t
   "keywords": ["up to 12 keywords"],
   "references": [ { "provider": "...", "title": "...", "url": "...", "authority": "primary|secondary|tertiary" } ]
 }
-Rules: never fabricate quotes attributed to real people, do not include placeholder text like TODO or LOREM, do not include the source prompt back in the body, always include the supplied references, keep description a plain sentence (no markdown), and use British/American English consistently.`;
+Rules: never fabricate quotes attributed to real people, do not include placeholder text like TODO or LOREM, do not include the source prompt back in the body, always include the supplied references, keep description a plain sentence (no markdown), use British/American English consistently, do not use em dashes, and do not use robot, star, sparkle, or decorative emoji/icons.`;
 
 function buildUserPrompt(input: Input): string {
   return [
@@ -134,7 +134,7 @@ async function runProvider(
   const started = Date.now();
   try {
     const out = await fn();
-    if (out === null) return null; // provider not configured — event already emitted by caller
+    if (out === null) return null; // provider not configured - event already emitted by caller
     await safeEmit(onEvent, {
       provider, model, event_type: "request_completed",
       status_code: 200, latency_ms: Date.now() - started,
@@ -258,8 +258,29 @@ export async function runGeneration(opts: GenerationOptions): Promise<Output> {
   throw new Error("Groq and Gemini both failed. See provider_events for per-provider diagnostics.");
 }
 
+function cleanDisplayText(value: string): string {
+  return value
+    .replace(/—/g, "-")
+    .replace(/[🤖✨⭐🌟★☆✦✧]/gu, "")
+    .replace(/ {2,}/g, " ")
+    .trim();
+}
+
 function finalize(out: Output, input: Input): Output {
-  const slug = slugify(out.slug || out.title, { lower: true, strict: true }).slice(0, 90) || "untitled";
-  const refs = out.references?.length ? out.references : input.references;
-  return { ...out, slug, references: refs };
+  const title = cleanDisplayText(out.title);
+  const slug = slugify(out.slug || title, { lower: true, strict: true }).slice(0, 90) || "untitled";
+  const refs = (out.references?.length ? out.references : input.references).map((ref) => ({
+    ...ref,
+    provider: cleanDisplayText(ref.provider),
+    title: cleanDisplayText(ref.title),
+  }));
+  return {
+    ...out,
+    slug,
+    title,
+    description: cleanDisplayText(out.description),
+    body_markdown: cleanDisplayText(out.body_markdown),
+    keywords: out.keywords.map(cleanDisplayText).filter(Boolean),
+    references: refs,
+  };
 }
