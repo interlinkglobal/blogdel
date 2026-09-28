@@ -1,4 +1,4 @@
-const FOOD_DRIVE_IDS = [
+export const FOOD_DRIVE_IDS = [
   "1HTQjlAoaFWo0AucV2BfOaDjTyjwXbOmC",
   "1WaODjFNordIhTO_O3LpG7Ev4Dt2WhpzY",
   "1s19sToaDp9dYPpDLTag29YftItuZpY4m",
