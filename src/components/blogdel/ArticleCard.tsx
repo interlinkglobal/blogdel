@@ -22,19 +22,21 @@ export interface ArticleCardData {
   authors?: { slug: string; display_name: string } | null;
 }
 
-function StoryImage({ a }: { a: ArticleCardData }) {
+function StoryImage({ a, priority = false }: { a: ArticleCardData; priority?: boolean }) {
   return (
     <EditorialImage
       src={a.featured_image_url}
       categorySlug={a.categories?.slug}
       articleKey={a.slug}
       alt={a.featured_image_alt || a.title}
+      renditionWidth={720}
+      priority={priority}
       className="h-48 w-full object-cover transition-transform duration-300 group-hover:scale-[1.015] sm:h-52"
     />
   );
 }
 
-export function ArticleCard({ a }: { a: ArticleCardData; variant?: "row" | "lead" | "compact" }) {
+export function ArticleCard({ a, priority = false }: { a: ArticleCardData; variant?: "row" | "lead" | "compact"; priority?: boolean }) {
   const cat = a.categories;
   const author = a.authors;
   const isRecipe = cat?.slug === "food" && a.keywords?.includes("food-recipes");
@@ -43,7 +45,7 @@ export function ArticleCard({ a }: { a: ArticleCardData; variant?: "row" | "lead
   return (
     <article className="group flex h-[35rem] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-soft transition-shadow hover:shadow-lift sm:h-[36rem]">
       <Link to="/blogs/$slug" params={{ slug: a.slug }} className="block shrink-0 overflow-hidden rounded-t-2xl border-b border-border">
-        <StoryImage a={a} />
+        <StoryImage a={a} priority={priority} />
       </Link>
       <div className="flex min-h-0 flex-1 flex-col p-5">
         <div className="flex min-h-5 items-center justify-between gap-3">
