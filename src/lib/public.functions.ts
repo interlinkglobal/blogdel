@@ -52,20 +52,49 @@ const REL = "categories(slug,label), authors(slug,display_name)";
 
 export const getHomepage = createServerFn({ method: "GET" }).handler(async () => {
   const { ensureInitialSeed } = await import("./initial-seed.server");
+  const { ensureRecipeSeed } = await import("./recipe-library.server");
   await ensureInitialSeed();
+  await ensureRecipeSeed();
   const sb = serverPublic();
   const [{ data: categories }, { data: articles }] = await Promise.all([
     sb.from("categories").select("id,slug,label,internal_label,description,sort_order").order("sort_order"),
-    sb.from("articles").select(`*, ${REL}`).eq("status", "published").order("published_at", { ascending: false }).limit(60),
+    sb.from("articles").select(`*, ${REL}`).eq("status", "published").order("published_at", { ascending: false }).limit(500),
   ]);
-  return { categories: categories ?? [], articles: stripMany(articles as any) };
+
+  const groups = new Map<string, any[]>();
+  for (const article of articles ?? []) {
+    const key = (article as any).category_id ?? "uncategorized";
+    const group = groups.get(key);
+    if (group) group.push(article);
+    else groups.set(key, [article]);
+  }
+  const cursors = new Map<string, number>();
+  const balanced: any[] = [];
+  while (balanced.length < 60) {
+    const round: any[] = [];
+    for (const [key, group] of groups) {
+      const cursor = cursors.get(key) ?? 0;
+      if (cursor >= group.length) continue;
+      round.push(group[cursor]);
+      cursors.set(key, cursor + 1);
+    }
+    if (!round.length) break;
+    round.sort((a, b) => new Date(b.published_at ?? 0).getTime() - new Date(a.published_at ?? 0).getTime());
+    balanced.push(...round);
+  }
+
+  return { categories: categories ?? [], articles: stripMany(balanced.slice(0, 60) as any) };
 });
 
 export const listArticles = createServerFn({ method: "GET" })
-  .inputValidator((d: { category?: string; author?: string; type?: string; q?: string; sort?: "newest"|"oldest"|"relevance"; cursor?: string; perPage?: number }) => d)
+  .inputValidator((d: { category?: string; subcategory?: string; author?: string; type?: string; q?: string; sort?: "newest"|"oldest"|"relevance"; cursor?: string; perPage?: number }) => d)
   .handler(async ({ data }) => {
     const { ensureInitialSeed } = await import("./initial-seed.server");
     await ensureInitialSeed();
+    if (data.category === "food" || data.subcategory === "recipes") {
+      const { ensureRecipeSeed } = await import("./recipe-library.server");
+      await ensureRecipeSeed();
+    }
     const sb = serverPublic();
     const perPage = Math.min(48, Math.max(1, data.perPage ?? 12));
 
@@ -105,6 +134,7 @@ export const listArticles = createServerFn({ method: "GET" })
       if (categoryId) query = query.eq("category_id", categoryId);
       if (authorId) query = query.eq("author_id", authorId);
       if (data.type) query = query.eq("article_type", data.type as never);
+      if (data.subcategory === "recipes") query = query.contains("keywords", ["food-recipes"]);
       if (data.q?.trim()) query = query.ilike("title", `%${data.q.trim()}%`);
 
       query = query
@@ -125,6 +155,7 @@ export const listArticles = createServerFn({ method: "GET" })
 
     const isBalancedAllFeed =
       !data.category &&
+      !data.subcategory &&
       !data.author &&
       !data.type &&
       !(data.q && data.q.trim()) &&
