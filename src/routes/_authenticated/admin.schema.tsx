@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { PageTitle } from "@/components/blogdel/AdminShell";
 
 export const Route = createFileRoute("/_authenticated/admin/schema")({
-  head: () => ({ meta: [{ title: "Schema — Blogdel Admin" }] }),
+  head: () => ({ meta: [{ title: "Schema | Blogdel Admin" }] }),
   component: SchemaPage,
 });
 
