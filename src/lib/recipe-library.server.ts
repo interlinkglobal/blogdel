@@ -5,6 +5,11 @@ import { ONE_MORE_BITE_URL, RECIPE_SEEDS, type RecipeSeed } from "@/lib/recipe-s
 const RECIPE_KEYWORD = "food-recipes";
 const RECIPE_PROVIDER = "blogdel-recipe-desk";
 const RECIPE_MODEL = "one-more-bite-adaptation-v1";
+const RECIPE_DATE_START = Date.UTC(2026, 0, 26, 12, 0, 0);
+
+function publishedAtForRecipe(index: number) {
+  return new Date(RECIPE_DATE_START + (index - 1) * 86400000).toISOString();
+}
 
 function cleanDishTitle(value: string) {
   return value
@@ -121,13 +126,33 @@ One More Bite approaches food as discovery: understand what makes a dish distinc
 export async function ensureRecipeSeed() {
   const { data: existing, error: existingError } = await supabaseAdmin
     .from("articles")
-    .select("slug")
+    .select("slug,published_at")
     .contains("keywords", [RECIPE_KEYWORD]);
   if (existingError) throw existingError;
 
   const existingSlugs = new Set((existing ?? []).map((row: any) => row.slug));
+  const existingBySlug = new Map((existing ?? []).map((row: any) => [row.slug, row]));
+
+  const dateUpdates = RECIPE_SEEDS.flatMap((seed) => {
+    const dish = cleanDishTitle(seed.title);
+    const slug = `recipe-${String(seed.index).padStart(3, "0")}-${slugify(dish)}`;
+    const current = existingBySlug.get(slug) as any;
+    const expected = publishedAtForRecipe(seed.index);
+    if (!current || current.published_at === expected) return [];
+    return [{ slug, published_at: expected }];
+  });
+
+  for (let i = 0; i < dateUpdates.length; i += 20) {
+    const batch = dateUpdates.slice(i, i + 20);
+    const results = await Promise.all(batch.map((row) =>
+      supabaseAdmin.from("articles").update({ published_at: row.published_at }).eq("slug", row.slug)
+    ));
+    const failed = results.find((result) => result.error);
+    if (failed?.error) throw failed.error;
+  }
+
   if (existingSlugs.size >= RECIPE_SEEDS.length) {
-    return { seeded: false, count: existingSlugs.size };
+    return { seeded: false, count: existingSlugs.size, datesUpdated: dateUpdates.length };
   }
 
   const [{ data: category, error: categoryError }, { data: author, error: authorError }] = await Promise.all([
@@ -142,8 +167,7 @@ export async function ensureRecipeSeed() {
     return !existingSlugs.has(`recipe-${String(seed.index).padStart(3, "0")}-${slugify(dish)}`);
   });
 
-  const now = Date.now();
-  const rows = missing.map((seed, offset) => {
+  const rows = missing.map((seed) => {
     const dish = cleanDishTitle(seed.title);
     const region = inferRegion(seed);
     const body = buildRecipeBody(seed);
@@ -166,7 +190,7 @@ export async function ensureRecipeSeed() {
       provider: RECIPE_PROVIDER,
       model: RECIPE_MODEL,
       is_demo: false,
-      published_at: new Date(now - (offset + 1) * 60000).toISOString(),
+      published_at: publishedAtForRecipe(seed.index),
     };
   });
 
