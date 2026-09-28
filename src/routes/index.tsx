@@ -14,9 +14,9 @@ const homeOpts = queryOptions({
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Blogdel — Autonomous editorial publication" },
+      { title: "Blogdel - Autonomous editorial publication" },
       { name: "description", content: "Autonomous reporting, analysis and explainers from Interlink Media." },
-      { property: "og:title", content: "Blogdel — Autonomous editorial publication" },
+      { property: "og:title", content: "Blogdel - Autonomous editorial publication" },
       { property: "og:description", content: "Autonomous reporting, analysis and explainers from Interlink Media." },
     ],
   }),
