@@ -168,7 +168,7 @@ export function SiteHeader() {
               </Link>
               {n.slug === "food" && (
                 <Link to="/blogs" search={{ category: "food", subcategory: "recipes" } as any} onClick={clearHeaderSearch}
-                  className="shrink-0 rounded-full border border-border bg-muted px-3 py-2 text-xs font-semibold text-foreground transition-colors hover:border-foreground">
+                  className="shrink-0 rounded-full border border-border bg-card px-3 py-2 text-muted-foreground transition-colors hover:border-foreground hover:text-foreground">
                   Recipes
                 </Link>
               )}
