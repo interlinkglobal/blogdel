@@ -24,8 +24,19 @@ function stripArticle<T extends Record<string, any>>(row: T): Omit<T, "search_ts
   const { search_tsv, ...rest } = row as any;
   return rest;
 }
+function isFallbackImage(url: string | null | undefined) {
+  return !!url && (url.startsWith("/fallback-images/") || url === "/editorial-fallback.svg");
+}
+
 function stripMany<T extends Record<string, any>>(rows: T[] | null | undefined): Omit<T, "search_tsv">[] {
-  return (rows ?? []).map(stripArticle);
+  const seen = new Set<string>();
+  return (rows ?? []).map(stripArticle).map((row: any) => {
+    const url = row.featured_image_url as string | null | undefined;
+    if (!url || isFallbackImage(url)) return row;
+    if (seen.has(url)) return { ...row, featured_image_url: null, featured_image_alt: null };
+    seen.add(url);
+    return row;
+  });
 }
 
 const REL = "categories(slug,label), authors(slug,display_name)";
@@ -69,6 +80,7 @@ export const listArticles = createServerFn({ method: "GET" })
       category_id: string | null;
       published_at: string | null;
       created_at: string | null;
+      featured_image_url: string | null;
     };
 
     const meta: FeedMeta[] = [];
@@ -78,7 +90,7 @@ export const listArticles = createServerFn({ method: "GET" })
 
     while (true) {
       let query = sb.from("articles")
-        .select("id,category_id,published_at,created_at", { count: "exact" })
+        .select("id,category_id,published_at,created_at,featured_image_url", { count: "exact" })
         .eq("status", "published");
 
       if (categoryId) query = query.eq("category_id", categoryId);
@@ -141,6 +153,13 @@ export const listArticles = createServerFn({ method: "GET" })
       ordered = [...meta].reverse();
     }
 
+    const imageOwner = new Map<string, string>();
+    for (const row of ordered) {
+      const url = row.featured_image_url;
+      if (!url || isFallbackImage(url) || imageOwner.has(url)) continue;
+      imageOwner.set(url, row.id);
+    }
+
     const cursorIndex = data.cursor ? ordered.findIndex((row) => row.id === data.cursor) : -1;
     const startIndex = cursorIndex >= 0 ? cursorIndex + 1 : 0;
     const slice = ordered.slice(startIndex, startIndex + perPage);
@@ -157,7 +176,11 @@ export const listArticles = createServerFn({ method: "GET" })
     if (pageError) throw pageError;
 
     const byId = new Map((pageRows ?? []).map((row: any) => [row.id, row]));
-    const rows = pageIds.map((id) => byId.get(id)).filter(Boolean) as any[];
+    const rows = pageIds.map((id) => byId.get(id)).filter(Boolean).map((row: any) => {
+      const url = row.featured_image_url as string | null | undefined;
+      if (!url || isFallbackImage(url) || imageOwner.get(url) === row.id) return row;
+      return { ...row, featured_image_url: null, featured_image_alt: null };
+    }) as any[];
     const nextCursor = startIndex + pageIds.length < ordered.length ? pageIds[pageIds.length - 1] : null;
 
     return { rows: stripMany(rows), count: total, perPage, nextCursor };
