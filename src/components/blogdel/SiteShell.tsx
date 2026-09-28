@@ -161,10 +161,18 @@ export function SiteHeader() {
         <nav className="-mx-1 flex gap-2 overflow-x-auto border-b border-border px-1 py-3 text-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <Link to="/blogs" onClick={clearHeaderSearch} className="shrink-0 rounded-full border border-border bg-card px-3 py-2 font-medium hover:border-foreground">All</Link>
           {NAV.map((n) => (
-            <Link key={n.slug} to="/blogs" search={{ category: n.slug } as any} onClick={clearHeaderSearch}
-              className="shrink-0 rounded-full border border-border bg-card px-3 py-2 text-muted-foreground transition-colors hover:border-foreground hover:text-foreground">
-              {n.label}
-            </Link>
+            <span key={n.slug} className="contents">
+              <Link to="/blogs" search={{ category: n.slug } as any} onClick={clearHeaderSearch}
+                className="shrink-0 rounded-full border border-border bg-card px-3 py-2 text-muted-foreground transition-colors hover:border-foreground hover:text-foreground">
+                {n.label}
+              </Link>
+              {n.slug === "food" && (
+                <Link to="/blogs" search={{ category: "food", subcategory: "recipes" } as any} onClick={clearHeaderSearch}
+                  className="shrink-0 rounded-full border border-border bg-muted px-3 py-2 text-xs font-semibold text-foreground transition-colors hover:border-foreground">
+                  Recipes
+                </Link>
+              )}
+            </span>
           ))}
         </nav>
 
