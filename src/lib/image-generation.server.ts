@@ -1,4 +1,5 @@
 import { acquireFeaturedImage } from "@/lib/image-acquisition.server";
+import { getArticleFallbackImage } from "@/lib/fallback-images";
 
 export type FeaturedImage = {
   url: string; alt: string;
@@ -8,6 +9,31 @@ export type FeaturedImage = {
 
 const MODEL = "@cf/black-forest-labs/flux-2-klein-4b";
 const BUCKET = "article-images";
+
+function fallbackImage(input: { title: string; category: string; articleId: string }): FeaturedImage {
+  const url = getArticleFallbackImage(input.category, input.articleId) ?? "/editorial-fallback.svg";
+  return {
+    url,
+    alt: `Editorial fallback for ${input.title}`,
+    sourceType: "category-fallback",
+    provider: "blogdel",
+    model: null,
+  };
+}
+
+async function imageAlreadyUsed(sb: any, url: string, articleId: string) {
+  if (!url || url.startsWith("/fallback-images/") || url === "/editorial-fallback.svg") return false;
+  const { data, error } = await sb.from("articles")
+    .select("id")
+    .eq("featured_image_url", url)
+    .neq("id", articleId)
+    .limit(1);
+  if (error) {
+    console.error("[image-uniqueness]", error);
+    return true;
+  }
+  return Boolean(data?.length);
+}
 
 function promptFor(input: { title: string; category: string; body: string }) {
   const excerpt = input.body.replace(/[#*_\[\]()>]/g, " ").replace(/\s+/g, " ").trim().slice(0, 900);
@@ -58,10 +84,14 @@ async function generated(input: { title: string; category: string; body: string;
 export async function resolveFeaturedImage(input: {
   title: string; category: string; body: string; articleId: string;
   keywords?: string[] | null; references?: Array<{ url: string; title?: string | null }> | null;
-}, sb: any): Promise<FeaturedImage | null> {
+}, sb: any): Promise<FeaturedImage> {
   const ai = await generated(input, sb);
-  if (ai) return ai;
+  if (ai && !(await imageAlreadyUsed(sb, ai.url, input.articleId))) return ai;
+
   const acquired = await acquireFeaturedImage({ title: input.title, keywords: input.keywords, references: input.references });
-  if (acquired) return { url: acquired.url, alt: acquired.alt, sourceType: "external", provider: acquired.source, model: null };
-  return { url: `/fallback-images/${input.category}-1.jpg`, alt: `Editorial fallback for ${input.title}`, sourceType: "category-fallback", provider: "blogdel", model: null };
+  if (acquired && !(await imageAlreadyUsed(sb, acquired.url, input.articleId))) {
+    return { url: acquired.url, alt: acquired.alt, sourceType: "external", provider: acquired.source, model: null };
+  }
+
+  return fallbackImage(input);
 }
