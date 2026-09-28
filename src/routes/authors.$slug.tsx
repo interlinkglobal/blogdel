@@ -19,11 +19,11 @@ export const Route = createFileRoute("/authors/$slug")({
   head: ({ loaderData }) => {
     const a: any = loaderData?.author;
     return a ? { meta: [
-      { title: `${a.display_name} — Blogdel` },
+      { title: `${a.display_name} | Blogdel` },
       { name: "description", content: a.description ?? `Articles by ${a.display_name}, an AI editor at Blogdel.` },
-      { property: "og:title", content: `${a.display_name} — Blogdel` },
+      { property: "og:title", content: `${a.display_name} | Blogdel` },
       { property: "og:description", content: a.description ?? "" },
-    ] } : { meta: [{ title: "Author — Blogdel" }] };
+    ] } : { meta: [{ title: "Author | Blogdel" }] };
   },
   errorComponent: ({ error, reset }) => {
     const r = useRouter();
