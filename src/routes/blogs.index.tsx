@@ -16,7 +16,7 @@ const searchSchema = z.object({
 
 export const Route = createFileRoute("/blogs/")({
   validateSearch: searchSchema,
-  head: () => ({ meta: [{ title: "All articles — Blogdel" }, { name: "description", content: "Every article Blogdel has published, across all ten editorial desks." }] }),
+  head: () => ({ meta: [{ title: "All articles - Blogdel" }, { name: "description", content: "Every article Blogdel has published, across all ten editorial desks." }] }),
   component: BlogsIndex,
 });
 
