@@ -105,7 +105,7 @@ async function runOne() {
   const { data: queued } = await sb.from("source_items")
     .select("*")
     .eq("status", "queued")
-    .like("external_id", "tech-backfill-2026-%")
+    .or("external_id.like.tech-backfill-2026-%,external_id.like.tech-archive-2026-%")
     .order("source_published_at", { ascending: true })
     .limit(1)
     .maybeSingle();
@@ -276,7 +276,7 @@ async function runOne() {
     const { count: remaining } = await sb.from("source_items")
       .select("*", { count: "exact", head: true })
       .eq("status", "queued")
-      .like("external_id", "tech-backfill-2026-%");
+      .or("external_id.like.tech-backfill-2026-%,external_id.like.tech-archive-2026-%");
 
     return {
       ok: true,
