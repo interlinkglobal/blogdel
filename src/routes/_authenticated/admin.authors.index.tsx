@@ -22,7 +22,7 @@ function Authors() {
   // Group by category
   const byCat: Record<string, any[]> = {};
   for (const a of data) {
-    const k = a.categories?.label ?? "—";
+    const k = a.categories?.label ?? "-";
     (byCat[k] ??= []).push(a);
   }
   return (
