@@ -23,6 +23,7 @@ type EditorialImageProps = {
   alt: string;
   className?: string;
   renditionWidth?: number;
+  priority?: boolean;
 };
 
 function accelerateFoodImage(url: string, width: number) {
@@ -33,7 +34,7 @@ function accelerateFoodImage(url: string, width: number) {
   return `/api/public/food-image/${encodeURIComponent(id)}?w=${width}`;
 }
 
-export function EditorialImage({ src, categorySlug, articleKey, alt, className, renditionWidth = 1280 }: EditorialImageProps) {
+export function EditorialImage({ src, categorySlug, articleKey, alt, className, renditionWidth = 1280, priority = false }: EditorialImageProps) {
   const fallback = useMemo(() => getArticleFallbackImage(categorySlug, articleKey), [categorySlug, articleKey]);
   const original = (src ?? "").trim();
   const usableOriginal = original && !original.includes("editorial-fallback") ? original : "";
@@ -108,7 +109,8 @@ export function EditorialImage({ src, categorySlug, articleKey, alt, className, 
     <img
       src={currentSrc}
       alt={alt}
-      loading="lazy"
+      loading={priority ? "eager" : "lazy"}
+      fetchPriority={priority ? "high" : "auto"}
       decoding="async"
       data-blog-image
       data-original-src={!usingFallback ? usableOriginal : ""}
