@@ -41,8 +41,8 @@ function Home() {
         </div>
       ) : (
         <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-          {articles.slice(0, 24).map((a) => (
-            <ArticleCard key={a.id} a={a} />
+          {articles.slice(0, 24).map((a, index) => (
+            <ArticleCard key={a.id} a={a} priority={index < 6} />
           ))}
         </div>
       )}
