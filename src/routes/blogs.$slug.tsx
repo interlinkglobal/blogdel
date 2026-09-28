@@ -93,6 +93,8 @@ function BlogDetail() {
             categorySlug={article.categories?.slug}
             articleKey={article.slug}
             alt={article.featured_image_alt || article.title}
+            renditionWidth={1280}
+            priority
             className="aspect-[16/9] w-full object-cover"
           />
         </figure>
