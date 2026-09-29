@@ -310,11 +310,22 @@ async function processOne(categorySlug: ArchiveCategory) {
   } catch (error: any) {
     const now = new Date().toISOString();
     const message = cleanText(error?.message ?? String(error)).slice(0, 800);
+    const retryableProviderFailure = /Groq and Gemini both failed|rate limit|429|quota/i.test(message);
     await Promise.all([
       sb.from("delegation_jobs").update({ status: "failed", completed_at: now, failure_reason: message }).eq("id", job.id),
-      sb.from("source_items").update({ status: "failed", rejection_reason: "generation_failed" }).eq("id", item.id),
+      sb.from("source_items").update({
+        status: retryableProviderFailure ? "queued" : "failed",
+        rejection_reason: retryableProviderFailure ? "retryable_provider_failure" : "generation_failed",
+      }).eq("id", item.id),
     ]);
-    return { ok: false, category: categorySlug, title: exactTitle, error: message, latency_ms: Date.now() - started };
+    return {
+      ok: false,
+      category: categorySlug,
+      title: exactTitle,
+      error: message,
+      retryable: retryableProviderFailure,
+      latency_ms: Date.now() - started,
+    };
   }
 }
 
