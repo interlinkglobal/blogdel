@@ -1,5 +1,6 @@
 import { acquireFeaturedImage } from "@/lib/image-acquisition.server";
 import { getFoodImageCandidates } from "@/lib/food-image-library";
+import { getArticleFallbackImage } from "@/lib/fallback-images";
 
 export type FeaturedImage = {
   url: string; alt: string;
@@ -124,5 +125,6 @@ export async function resolveFeaturedImage(input: {
   if (acquired && !(await imageAlreadyUsed(sb, acquired.url, input.articleId))) {
     return { url: acquired.url, alt: acquired.alt, sourceType: "external", provider: acquired.source, model: null };
   }
-  return { url: `/fallback-images/${input.category}-1.jpg`, alt: `Editorial fallback for ${input.title}`, sourceType: "category-fallback", provider: "blogdel", model: null };
+  const fallback = getArticleFallbackImage(input.category, input.articleId);
+  return fallback ? { url: fallback, alt: `Editorial fallback for ${input.title}`, sourceType: "category-fallback", provider: "blogdel", model: null } : null;
 }

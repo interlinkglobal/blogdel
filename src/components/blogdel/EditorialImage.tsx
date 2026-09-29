@@ -18,6 +18,7 @@ export function EditorialFallback({ className }: { className?: string }) {
 
 type EditorialImageProps = {
   src?: string | null;
+  candidateUrls?: string[] | null;
   categorySlug?: string | null;
   articleKey?: string | null;
   alt: string;
@@ -26,7 +27,7 @@ type EditorialImageProps = {
   priority?: boolean;
 };
 
-function accelerateFoodImage(url: string, width: number) {
+function sizeDriveImage(url: string, width: number) {
   const match = url.match(/^https:\/\/drive\.google\.com\/thumbnail\?id=([^&]+)/);
   if (!match) return url;
   let id = match[1];
@@ -34,98 +35,31 @@ function accelerateFoodImage(url: string, width: number) {
   return `https://drive.google.com/thumbnail?id=${encodeURIComponent(id)}&sz=w${width}`;
 }
 
-export function EditorialImage({ src, categorySlug, articleKey, alt, className, renditionWidth = 1280, priority = false }: EditorialImageProps) {
-  const fallback = useMemo(() => getArticleFallbackImage(categorySlug, articleKey), [categorySlug, articleKey]);
-  const original = (src ?? "").trim();
-  const usableOriginal = original && !original.includes("editorial-fallback") ? original : "";
-  const deliveryOriginal = usableOriginal ? accelerateFoodImage(usableOriginal, renditionWidth) : "";
-  const startsAsFallback = !usableOriginal || usableOriginal.startsWith("/fallback-images/");
-  const [currentSrc, setCurrentSrc] = useState(deliveryOriginal || fallback || "");
-  const [usingFallback, setUsingFallback] = useState(startsAsFallback);
-  const [loaded, setLoaded] = useState(false);
-  const [showEditorial, setShowEditorial] = useState(false);
+export function EditorialImage({ src, candidateUrls, categorySlug, articleKey, alt, className, renditionWidth = 1280, priority = false }: EditorialImageProps) {
+  const categoryFallback = getArticleFallbackImage(categorySlug, articleKey);
+  const candidates = useMemo(() => {
+    const urls = [src, ...(candidateUrls ?? []), categoryFallback];
+    return [...new Set(urls.filter((url): url is string => !!url && !url.includes("editorial-fallback")))]
+      .map((url) => sizeDriveImage(url, renditionWidth));
+  }, [src, candidateUrls, categoryFallback, renditionWidth]);
+  const candidateKey = candidates.join("\n");
+  const [index, setIndex] = useState(0);
+  useEffect(() => setIndex(0), [candidateKey]);
+  const currentSrc = candidates[index];
 
-  const useCategoryFallback = () => {
-    if (!fallback) {
-      setShowEditorial(true);
-      return;
-    }
-    setLoaded(false);
-    setUsingFallback(true);
-    setCurrentSrc(fallback);
-  };
-
-  useEffect(() => {
-    setLoaded(false);
-    setShowEditorial(false);
-    if (typeof navigator !== "undefined" && !navigator.onLine) {
-      setShowEditorial(true);
-      return;
-    }
-    if (usableOriginal) {
-      setCurrentSrc(deliveryOriginal);
-      setUsingFallback(usableOriginal.startsWith("/fallback-images/"));
-    } else if (fallback) {
-      setCurrentSrc(fallback);
-      setUsingFallback(true);
-    } else {
-      setCurrentSrc("");
-      setUsingFallback(true);
-      setShowEditorial(true);
-    }
-  }, [usableOriginal, deliveryOriginal, fallback]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const offline = () => setShowEditorial(true);
-    const online = () => {
-      setShowEditorial(false);
-      setLoaded(false);
-      if (usableOriginal) {
-        setCurrentSrc(deliveryOriginal);
-        setUsingFallback(usableOriginal.startsWith("/fallback-images/"));
-      } else if (fallback) {
-        setCurrentSrc(fallback);
-        setUsingFallback(true);
-      }
-    };
-    window.addEventListener("offline", offline);
-    window.addEventListener("online", online);
-    return () => {
-      window.removeEventListener("offline", offline);
-      window.removeEventListener("online", online);
-    };
-  }, [usableOriginal, deliveryOriginal, fallback]);
-
-  useEffect(() => {
-    if (!usingFallback || loaded || showEditorial || !currentSrc) return;
-    const timer = setTimeout(() => setShowEditorial(true), 4500);
-    return () => clearTimeout(timer);
-  }, [usingFallback, loaded, showEditorial, currentSrc]);
-
-  if (showEditorial || !currentSrc) return <EditorialFallback className={className} />;
+  if (!currentSrc) return <EditorialFallback className={className} />;
 
   return (
     <img
+      key={currentSrc}
       src={currentSrc}
       alt={alt}
       loading={priority ? "eager" : "lazy"}
       fetchPriority={priority ? "high" : "auto"}
       decoding="async"
       data-blog-image
-      data-original-src={!usingFallback ? usableOriginal : ""}
       className={className}
-      onLoad={(e) => {
-        setLoaded(true);
-        if (usingFallback || !usableOriginal) return;
-        const matches = Array.from(document.querySelectorAll<HTMLImageElement>("img[data-blog-image]"))
-          .filter((img) => img.dataset.originalSrc === usableOriginal);
-        if (matches[0] !== e.currentTarget) useCategoryFallback();
-      }}
-      onError={() => {
-        if (usingFallback) setShowEditorial(true);
-        else useCategoryFallback();
-      }}
+      onError={() => setIndex((current) => current + 1)}
     />
   );
 }

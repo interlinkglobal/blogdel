@@ -16,6 +16,7 @@ export interface ArticleCardData {
   model: string | null;
   featured_image_url?: string | null;
   featured_image_alt?: string | null;
+  thumbnail_candidates?: string[] | null;
   is_demo?: boolean | null;
   keywords?: string[] | null;
   categories?: { slug: string; label: string } | null;
@@ -26,10 +27,11 @@ function StoryImage({ a, priority = false }: { a: ArticleCardData; priority?: bo
   return (
     <EditorialImage
       src={a.featured_image_url}
+      candidateUrls={a.thumbnail_candidates}
       categorySlug={a.categories?.slug}
       articleKey={a.slug}
       alt={a.featured_image_alt || a.title}
-      renditionWidth={720}
+      renditionWidth={3840}
       priority={priority}
       className="h-48 w-full object-cover transition-transform duration-300 group-hover:scale-[1.015] sm:h-52"
     />

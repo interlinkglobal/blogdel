@@ -2,7 +2,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
-import { curatedImageUrl } from "./curated-images";
+import { thumbnailCandidates, thumbnailTier } from "./thumbnail-policy";
 
 function serverPublic() {
   const url = process.env.SUPABASE_URL!;
@@ -63,13 +63,24 @@ function categoryRanks(rows: { id: string; category_id: string | null }[]) {
   return ranks;
 }
 
-function withCuratedImages<T extends Record<string, any>>(rows: T[], ranks: Map<string, number>): T[] {
+function withPreferredImages<T extends Record<string, any>>(rows: T[], ranks: Map<string, number>): T[] {
   return rows.map((row) => {
-    const rank = ranks.get(row.id);
-    const category = row.categories?.slug;
-    const url = rank === undefined || !category ? null : curatedImageUrl(category, rank);
-    return url ? { ...row, featured_image_url: url, featured_image_alt: row.title } : row;
+    const candidates = thumbnailCandidates(row.categories?.slug, row.slug ?? row.id, ranks.get(row.id) ?? -1, row.featured_image_url);
+    return { ...row, featured_image_url: candidates[0] ?? null, featured_image_alt: row.featured_image_alt || row.title, thumbnail_candidates: candidates };
   });
+}
+
+function imagesFirst<T extends Record<string, any>>(rows: T[]): T[] {
+  return [...rows].sort((a, b) => thumbnailTier(a.featured_image_url) - thumbnailTier(b.featured_image_url));
+}
+
+async function ranksForCategory(sb: ReturnType<typeof serverPublic>, categoryId: string | null | undefined) {
+  if (!categoryId) return new Map<string, number>();
+  const { data, error } = await sb.from("articles").select("id,category_id")
+    .eq("status", "published").eq("category_id", categoryId)
+    .order("published_at", { ascending: false }).order("created_at", { ascending: false }).limit(1000);
+  if (error) throw error;
+  return categoryRanks(data ?? []);
 }
 
 const REL = "categories(slug,label), authors(slug,display_name)";
@@ -107,7 +118,8 @@ export const getHomepage = createServerFn({ method: "GET" }).handler(async () =>
     balanced.push(...round);
   }
 
-  return { categories: categories ?? [], articles: withCuratedImages(stripMany(balanced.slice(0, 60) as any), categoryRanks((articles ?? []) as any)) };
+  const featured = withPreferredImages(balanced.map((row) => stripArticle(row)), categoryRanks((articles ?? []) as any));
+  return { categories: categories ?? [], articles: imagesFirst(featured).slice(0, 60) };
 });
 
 export const listArticles = createServerFn({ method: "GET" })
@@ -217,12 +229,14 @@ export const listArticles = createServerFn({ method: "GET" })
       ordered = [...meta].reverse();
     }
 
-    const imageOwner = new Map<string, string>();
-    for (const row of ordered) {
-      const url = row.featured_image_url;
-      if (!url || isFallbackImage(url) || imageOwner.has(url)) continue;
-      imageOwner.set(url, row.id);
-    }
+    const ranks = categoryRanks(meta);
+    const { data: categoryRows, error: categoriesError } = await sb.from("categories").select("id,slug");
+    if (categoriesError) throw categoriesError;
+    const slugs = new Map((categoryRows ?? []).map((category) => [category.id, category.slug]));
+    ordered = imagesFirst(ordered.map((row) => ({
+      ...row,
+      featured_image_url: thumbnailCandidates(slugs.get(row.category_id ?? ""), row.id, ranks.get(row.id) ?? -1, row.featured_image_url)[0] ?? null,
+    })));
 
     const cursorIndex = data.cursor ? ordered.findIndex((row) => row.id === data.cursor) : -1;
     const startIndex = cursorIndex >= 0 ? cursorIndex + 1 : 0;
@@ -240,14 +254,10 @@ export const listArticles = createServerFn({ method: "GET" })
     if (pageError) throw pageError;
 
     const byId = new Map((pageRows ?? []).map((row: any) => [row.id, row]));
-    const rows = pageIds.map((id) => byId.get(id)).filter(Boolean).map((row: any) => {
-      const url = row.featured_image_url as string | null | undefined;
-      if (!url || isFallbackImage(url) || imageOwner.get(url) === row.id) return row;
-      return { ...row, featured_image_url: null, featured_image_alt: null };
-    }) as any[];
+    const rows = pageIds.map((id) => byId.get(id)).filter(Boolean) as any[];
     const nextCursor = startIndex + pageIds.length < ordered.length ? pageIds[pageIds.length - 1] : null;
 
-    return { rows: withCuratedImages(stripMany(rows), categoryRanks(meta)), count: total, perPage, nextCursor };
+    return { rows: withPreferredImages(rows.map((row) => stripArticle(row)), ranks), count: total, perPage, nextCursor };
   });
 
 export const getArticleBySlug = createServerFn({ method: "GET" })
@@ -259,13 +269,14 @@ export const getArticleBySlug = createServerFn({ method: "GET" })
       .eq("slug", data.slug).eq("status","published").maybeSingle();
     if (!articleRaw) return null;
     const article = stripArticle(articleRaw as any);
-    const [{ data: refs }, { data: related }] = await Promise.all([
+    const [{ data: refs }, { data: related }, ranks] = await Promise.all([
       sb.from("article_references").select("*").eq("article_id", (article as any).id).order("position"),
       sb.from("articles").select(`id,slug,title,description,published_at,reading_time_minutes,featured_image_url,featured_image_alt,article_type,provider,model, ${REL}`)
         .eq("status","published").eq("category_id", (article as any).category_id).neq("id", (article as any).id)
         .order("published_at",{ ascending: false }).limit(4),
+      ranksForCategory(sb, (article as any).category_id),
     ]);
-    return { article, refs: sanitizePublicText(refs ?? []), related: stripMany(related as any) };
+    return { article, refs: sanitizePublicText(refs ?? []), related: withPreferredImages((related ?? []).map((row) => stripArticle(row)), ranks) };
   });
 
 export const getCategoryPage = createServerFn({ method: "GET" })
@@ -282,7 +293,8 @@ export const getCategoryPage = createServerFn({ method: "GET" })
         .range((page-1)*perPage, page*perPage - 1),
       sb.from("authors").select("id,slug,display_name,article_count").eq("category_id", cat.id).eq("is_active",true).order("display_name"),
     ]);
-    return { category: cat, articles: stripMany(articles as any), count: count ?? 0, page, perPage, authors: authors ?? [] };
+    const ranks = await ranksForCategory(sb, cat.id);
+    return { category: cat, articles: withPreferredImages((articles ?? []).map((row) => stripArticle(row)), ranks), count: count ?? 0, page, perPage, authors: authors ?? [] };
   });
 
 export const getAuthorPage = createServerFn({ method: "GET" })
@@ -294,7 +306,8 @@ export const getAuthorPage = createServerFn({ method: "GET" })
     const { data: articles } = await sb.from("articles")
       .select(`*, ${REL}`)
       .eq("author_id", (author as any).id).eq("status","published").order("published_at",{ ascending: false }).limit(30);
-    return { author, articles: stripMany(articles as any) };
+    const ranks = await ranksForCategory(sb, (author as any).category_id);
+    return { author, articles: withPreferredImages((articles ?? []).map((row) => stripArticle(row)), ranks) };
   });
 
 export const searchArticles = createServerFn({ method: "GET" })
