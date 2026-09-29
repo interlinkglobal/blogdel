@@ -7,8 +7,7 @@ import { ArticleCard, type ArticleCardData } from "@/components/blogdel/ArticleC
 const homeOpts = queryOptions({
   queryKey: ["home"],
   queryFn: () => getHomepage(),
-  staleTime: 0,
-  refetchOnMount: "always" as const,
+  staleTime: 30_000,
 });
 
 export const Route = createFileRoute("/")({

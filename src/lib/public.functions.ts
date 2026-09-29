@@ -3,6 +3,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { thumbnailCandidates, thumbnailTier } from "./thumbnail-policy";
+import { cachedPublic } from "./public-cache.server";
 
 function serverPublic() {
   const url = process.env.SUPABASE_URL!;
@@ -76,24 +77,28 @@ function imagesFirst<T extends Record<string, any>>(rows: T[]): T[] {
 
 async function ranksForCategory(sb: ReturnType<typeof serverPublic>, categoryId: string | null | undefined) {
   if (!categoryId) return new Map<string, number>();
-  const { data, error } = await sb.from("articles").select("id,category_id")
-    .eq("status", "published").eq("category_id", categoryId)
-    .order("published_at", { ascending: false }).order("created_at", { ascending: false }).limit(1000);
-  if (error) throw error;
-  return categoryRanks(data ?? []);
+  return cachedPublic(`ranks:${categoryId}`, 60_000, async () => {
+    const { data, error } = await sb.from("articles").select("id,category_id")
+      .eq("status", "published").eq("category_id", categoryId)
+      .order("published_at", { ascending: false }).order("created_at", { ascending: false }).limit(1000);
+    if (error) throw error;
+    return categoryRanks(data ?? []);
+  });
 }
 
 const REL = "categories(slug,label), authors(slug,display_name)";
+// Card queries never need the potentially large body or search vector.
+const CARD = `id,category_id,slug,title,description,published_at,created_at,reading_time_minutes,word_count,featured_image_url,featured_image_alt,article_type,provider,model,is_demo,keywords,${REL}`;
 
-export const getHomepage = createServerFn({ method: "GET" }).handler(async () => {
+export const getHomepage = createServerFn({ method: "GET" }).handler(() => cachedPublic("home", 30_000, async () => {
   const { ensureInitialSeed } = await import("./initial-seed.server");
   const { ensureRecipeSeed } = await import("./recipe-library.server");
-  await ensureInitialSeed();
-  await ensureRecipeSeed();
+  await cachedPublic("initial-seed", 300_000, ensureInitialSeed);
+  await cachedPublic("recipe-seed", 300_000, ensureRecipeSeed);
   const sb = serverPublic();
   const [{ data: categories }, { data: articles }] = await Promise.all([
     sb.from("categories").select("id,slug,label,internal_label,description,sort_order").order("sort_order"),
-    sb.from("articles").select(`*, ${REL}`).eq("status", "published").order("published_at", { ascending: false }).order("created_at", { ascending: false }).limit(500),
+    sb.from("articles").select(CARD).eq("status", "published").order("published_at", { ascending: false }).order("created_at", { ascending: false }).limit(500),
   ]);
 
   const groups = new Map<string, any[]>();
@@ -120,16 +125,16 @@ export const getHomepage = createServerFn({ method: "GET" }).handler(async () =>
 
   const featured = withPreferredImages(balanced.map((row) => stripArticle(row)), categoryRanks((articles ?? []) as any));
   return { categories: categories ?? [], articles: imagesFirst(featured).slice(0, 60) };
-});
+}));
 
 export const listArticles = createServerFn({ method: "GET" })
   .inputValidator((d: { category?: string; subcategory?: string; author?: string; type?: string; q?: string; sort?: "newest"|"oldest"|"relevance"; cursor?: string; perPage?: number }) => d)
-  .handler(async ({ data }) => {
+  .handler(({ data }) => cachedPublic(`feed:${JSON.stringify(data)}`, 30_000, async () => {
     const { ensureInitialSeed } = await import("./initial-seed.server");
-    await ensureInitialSeed();
+    await cachedPublic("initial-seed", 300_000, ensureInitialSeed);
     if (data.category === "food" || data.subcategory === "recipes") {
       const { ensureRecipeSeed } = await import("./recipe-library.server");
-      await ensureRecipeSeed();
+      await cachedPublic("recipe-seed", 300_000, ensureRecipeSeed);
     }
     const sb = serverPublic();
     const perPage = Math.min(48, Math.max(1, data.perPage ?? 12));
@@ -157,37 +162,35 @@ export const listArticles = createServerFn({ method: "GET" })
       featured_image_url: string | null;
     };
 
-    const meta: FeedMeta[] = [];
-    const batchSize = 1000;
-    let offset = 0;
-    let total = 0;
-
-    while (true) {
-      let query = sb.from("articles")
-        .select("id,category_id,published_at,created_at,featured_image_url", { count: "exact" })
-        .eq("status", "published");
-
-      if (categoryId) query = query.eq("category_id", categoryId);
-      if (authorId) query = query.eq("author_id", authorId);
-      if (data.type) query = query.eq("article_type", data.type as never);
-      if (data.subcategory === "recipes") query = query.contains("keywords", ["food-recipes"]);
-      if (data.q?.trim()) query = query.ilike("title", `%${data.q.trim()}%`);
-
-      query = query
-        .order("published_at", { ascending: false })
-        .order("created_at", { ascending: false })
-        .range(offset, offset + batchSize - 1);
-
-      const { data: chunk, count, error } = await query;
-      if (error) throw error;
-
-      const rows = (chunk ?? []) as FeedMeta[];
-      meta.push(...rows);
-      total = count ?? meta.length;
-
-      if (rows.length < batchSize || meta.length >= total) break;
-      offset += batchSize;
-    }
+    const { meta, total } = await cachedPublic(`feed-meta:${JSON.stringify({
+      categoryId, authorId, type: data.type, subcategory: data.subcategory, q: data.q?.trim(),
+    })}`, 60_000, async () => {
+      const meta: FeedMeta[] = [];
+      const batchSize = 1000;
+      let offset = 0;
+      let total = 0;
+      while (true) {
+        let query = sb.from("articles")
+          .select("id,category_id,published_at,created_at,featured_image_url", { count: "exact" })
+          .eq("status", "published");
+        if (categoryId) query = query.eq("category_id", categoryId);
+        if (authorId) query = query.eq("author_id", authorId);
+        if (data.type) query = query.eq("article_type", data.type as never);
+        if (data.subcategory === "recipes") query = query.contains("keywords", ["food-recipes"]);
+        if (data.q?.trim()) query = query.ilike("title", `%${data.q.trim()}%`);
+        const { data: chunk, count, error } = await query
+          .order("published_at", { ascending: false })
+          .order("created_at", { ascending: false })
+          .range(offset, offset + batchSize - 1);
+        if (error) throw error;
+        const rows = (chunk ?? []) as FeedMeta[];
+        meta.push(...rows);
+        total = count ?? meta.length;
+        if (rows.length < batchSize || meta.length >= total) break;
+        offset += batchSize;
+      }
+      return { meta, total };
+    });
 
     const isBalancedAllFeed =
       !data.category &&
@@ -248,7 +251,7 @@ export const listArticles = createServerFn({ method: "GET" })
     }
 
     const { data: pageRows, error: pageError } = await sb.from("articles")
-      .select(`*, ${REL}`)
+      .select(CARD)
       .in("id", pageIds);
 
     if (pageError) throw pageError;
@@ -258,11 +261,11 @@ export const listArticles = createServerFn({ method: "GET" })
     const nextCursor = startIndex + pageIds.length < ordered.length ? pageIds[pageIds.length - 1] : null;
 
     return { rows: withPreferredImages(rows.map((row) => stripArticle(row)), ranks), count: total, perPage, nextCursor };
-  });
+  }));
 
 export const getArticleBySlug = createServerFn({ method: "GET" })
   .inputValidator((d: { slug: string }) => d)
-  .handler(async ({ data }) => {
+  .handler(({ data }) => cachedPublic(`article:${data.slug}`, 60_000, async () => {
     const sb = serverPublic();
     const { data: articleRaw } = await sb.from("articles")
       .select(`*, categories(slug,label), authors(slug,display_name,description)`)
@@ -271,31 +274,31 @@ export const getArticleBySlug = createServerFn({ method: "GET" })
     const article = stripArticle(articleRaw as any);
     const [{ data: refs }, { data: related }, ranks] = await Promise.all([
       sb.from("article_references").select("*").eq("article_id", (article as any).id).order("position"),
-      sb.from("articles").select(`id,slug,title,description,published_at,reading_time_minutes,featured_image_url,featured_image_alt,article_type,provider,model, ${REL}`)
+      sb.from("articles").select(CARD)
         .eq("status","published").eq("category_id", (article as any).category_id).neq("id", (article as any).id)
         .order("published_at",{ ascending: false }).limit(4),
       ranksForCategory(sb, (article as any).category_id),
     ]);
     return { article, refs: sanitizePublicText(refs ?? []), related: withPreferredImages((related ?? []).map((row) => stripArticle(row)), ranks) };
-  });
+  }));
 
 export const getCategoryPage = createServerFn({ method: "GET" })
   .inputValidator((d: { slug: string; page?: number }) => d)
-  .handler(async ({ data }) => {
+  .handler(({ data }) => cachedPublic(`category:${data.slug}:${data.page ?? 1}`, 30_000, async () => {
     const sb = serverPublic();
     const { data: cat } = await sb.from("categories").select("*").eq("slug", data.slug).maybeSingle();
     if (!cat) return null;
     const perPage = 12;
     const page = Math.max(1, data.page ?? 1);
     const [{ data: articles, count }, { data: authors }] = await Promise.all([
-      sb.from("articles").select(`*, ${REL}`, { count: "exact" })
+      sb.from("articles").select(CARD, { count: "exact" })
         .eq("category_id", cat.id).eq("status","published").order("published_at",{ ascending: false })
         .range((page-1)*perPage, page*perPage - 1),
       sb.from("authors").select("id,slug,display_name,article_count").eq("category_id", cat.id).eq("is_active",true).order("display_name"),
     ]);
     const ranks = await ranksForCategory(sb, cat.id);
     return { category: cat, articles: withPreferredImages((articles ?? []).map((row) => stripArticle(row)), ranks), count: count ?? 0, page, perPage, authors: authors ?? [] };
-  });
+  }));
 
 export const getAuthorPage = createServerFn({ method: "GET" })
   .inputValidator((d: { slug: string }) => d)
@@ -304,7 +307,7 @@ export const getAuthorPage = createServerFn({ method: "GET" })
     const { data: author } = await sb.from("authors").select("*,categories(slug,label)").eq("slug", data.slug).maybeSingle();
     if (!author) return null;
     const { data: articles } = await sb.from("articles")
-      .select(`*, ${REL}`)
+      .select(CARD)
       .eq("author_id", (author as any).id).eq("status","published").order("published_at",{ ascending: false }).limit(30);
     const ranks = await ranksForCategory(sb, (author as any).category_id);
     return { author, articles: withPreferredImages((articles ?? []).map((row) => stripArticle(row)), ranks) };
@@ -317,12 +320,12 @@ export const searchArticles = createServerFn({ method: "GET" })
     if (!q) return { rows: [] as any[], q: "" };
     const sb = serverPublic();
     const tsq = q.split(/\s+/).map(t=>t.replace(/[^a-z0-9]/gi,"")).filter(Boolean).join(" & ");
-    let query = sb.from("articles").select(`*, ${REL}`).eq("status","published");
+    let query = sb.from("articles").select(CARD).eq("status","published");
     if (tsq) query = query.textSearch("search_tsv", tsq, { config: "english" });
     if (data.category) {
       const { data: cat } = await sb.from("categories").select("id").eq("slug", data.category).maybeSingle();
       if (cat) query = query.eq("category_id", cat.id);
     }
-    const { data: rows } = await query.order("published_at",{ ascending: false }).limit(40);
+  const { data: rows } = await query.order("published_at",{ ascending: false }).limit(40);
     return { rows: stripMany(rows as any), q };
   });

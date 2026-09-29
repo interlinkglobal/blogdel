@@ -50,10 +50,8 @@ function BlogsIndex() {
     }),
     initialPageParam: "",
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
-    staleTime: 0,
-    refetchOnWindowFocus: true,
-    refetchInterval: !feedInput.q && !feedInput.category && !feedInput.subcategory && !feedInput.type ? 5000 : false,
-    refetchIntervalInBackground: true,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 
   const rows = useMemo(() => {
