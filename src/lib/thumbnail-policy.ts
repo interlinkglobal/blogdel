@@ -1,6 +1,7 @@
 import { curatedImageUrl } from "./curated-images";
 import { FOOD_DRIVE_IDS, foodImageUrl } from "./food-image-library";
 import { getArticleFallbackImage } from "./fallback-images";
+import { supabaseImageCopy } from "./supabase-image-library";
 
 function imageHost(url: string) {
   try { return new URL(url).hostname.toLowerCase(); } catch { return ""; }
@@ -14,6 +15,11 @@ function isCloudinary(url: string) {
 function isDrive(url: string) {
   const host = imageHost(url);
   return host === "drive.google.com" || host === "googleusercontent.com" || host.endsWith(".googleusercontent.com");
+}
+
+function isSupabase(url: string) {
+  const host = imageHost(url);
+  return (host.endsWith(".supabase.co") || host.endsWith(".supabase.in")) && url.includes("/storage/v1/");
 }
 
 function normalizeImageUrl(url: string) {
@@ -38,15 +44,18 @@ export function thumbnailCandidates(category: string | null | undefined, article
   if (isDrive(original)) add(normalizeImageUrl(original));
   if (category === "food" && rank >= 0) add(foodImageUrl(FOOD_DRIVE_IDS[rank % FOOD_DRIVE_IDS.length]));
   if (/^https?:\/\//i.test(original) && !isCloudinary(original) && !isDrive(original)) add(original);
+  // Only add verified copies. No Storage request is made until earlier images fail.
+  for (const url of [...candidates]) add(supabaseImageCopy(url));
   if (isUsableRelative(original)) add(original);
   add(getArticleFallbackImage(category, articleKey));
   return candidates.sort((a, b) => thumbnailTier(a) - thumbnailTier(b));
 }
 
 export function thumbnailTier(url: string | undefined) {
-  if (!url) return 4; // In-app component fallback
+  if (!url) return 5; // In-app component fallback
   if (isCloudinary(url)) return 0;
   if (isDrive(url)) return 1;
+  if (isSupabase(url)) return 3;
   if (/^https?:\/\//i.test(url)) return 2;
-  return 3; // Codebase-relative image
+  return 4; // Codebase-relative image
 }

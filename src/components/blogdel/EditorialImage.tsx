@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { getArticleFallbackImage } from "@/lib/fallback-images";
+import { supabaseImageCopy } from "@/lib/supabase-image-library";
 
 export function EditorialFallback({ className }: { className?: string }) {
   return (
@@ -38,7 +39,14 @@ function sizeDriveImage(url: string, width: number) {
 export function EditorialImage({ src, candidateUrls, categorySlug, articleKey, alt, className, renditionWidth = 1280, priority = false }: EditorialImageProps) {
   const categoryFallback = getArticleFallbackImage(categorySlug, articleKey);
   const candidates = useMemo(() => {
-    const urls = [src, ...(candidateUrls ?? []), categoryFallback];
+    const primary = [src, ...(candidateUrls ?? [])].filter((url): url is string => !!url);
+    const copies = primary.map(supabaseImageCopy).filter((url): url is string => !!url);
+    const urls = [
+      ...primary.filter((url) => !url.startsWith("/")),
+      ...copies,
+      ...primary.filter((url) => url.startsWith("/")),
+      categoryFallback,
+    ];
     return [...new Set(urls.filter((url): url is string => !!url && !url.includes("editorial-fallback")))]
       .map((url) => sizeDriveImage(url, renditionWidth));
   }, [src, candidateUrls, categoryFallback, renditionWidth]);
