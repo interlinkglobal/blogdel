@@ -2,6 +2,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
+import { curatedImageUrl } from "./curated-images";
 
 function serverPublic() {
   const url = process.env.SUPABASE_URL!;
@@ -48,6 +49,29 @@ function stripMany<T extends Record<string, any>>(rows: T[] | null | undefined):
   });
 }
 
+// Assign images by category publication rank, rather than by page position or a hash.
+// This keeps the first complete rotation unique across pagination and refreshes.
+function categoryRanks(rows: { id: string; category_id: string | null }[]) {
+  const counts = new Map<string, number>();
+  const ranks = new Map<string, number>();
+  for (const row of rows) {
+    const category = row.category_id ?? "";
+    const rank = counts.get(category) ?? 0;
+    ranks.set(row.id, rank);
+    counts.set(category, rank + 1);
+  }
+  return ranks;
+}
+
+function withCuratedImages<T extends Record<string, any>>(rows: T[], ranks: Map<string, number>): T[] {
+  return rows.map((row) => {
+    const rank = ranks.get(row.id);
+    const category = row.categories?.slug;
+    const url = rank === undefined || !category ? null : curatedImageUrl(category, rank);
+    return url ? { ...row, featured_image_url: url, featured_image_alt: row.title } : row;
+  });
+}
+
 const REL = "categories(slug,label), authors(slug,display_name)";
 
 export const getHomepage = createServerFn({ method: "GET" }).handler(async () => {
@@ -58,7 +82,7 @@ export const getHomepage = createServerFn({ method: "GET" }).handler(async () =>
   const sb = serverPublic();
   const [{ data: categories }, { data: articles }] = await Promise.all([
     sb.from("categories").select("id,slug,label,internal_label,description,sort_order").order("sort_order"),
-    sb.from("articles").select(`*, ${REL}`).eq("status", "published").order("published_at", { ascending: false }).limit(500),
+    sb.from("articles").select(`*, ${REL}`).eq("status", "published").order("published_at", { ascending: false }).order("created_at", { ascending: false }).limit(500),
   ]);
 
   const groups = new Map<string, any[]>();
@@ -83,7 +107,7 @@ export const getHomepage = createServerFn({ method: "GET" }).handler(async () =>
     balanced.push(...round);
   }
 
-  return { categories: categories ?? [], articles: stripMany(balanced.slice(0, 60) as any) };
+  return { categories: categories ?? [], articles: withCuratedImages(stripMany(balanced.slice(0, 60) as any), categoryRanks((articles ?? []) as any)) };
 });
 
 export const listArticles = createServerFn({ method: "GET" })
@@ -223,7 +247,7 @@ export const listArticles = createServerFn({ method: "GET" })
     }) as any[];
     const nextCursor = startIndex + pageIds.length < ordered.length ? pageIds[pageIds.length - 1] : null;
 
-    return { rows: stripMany(rows), count: total, perPage, nextCursor };
+    return { rows: withCuratedImages(stripMany(rows), categoryRanks(meta)), count: total, perPage, nextCursor };
   });
 
 export const getArticleBySlug = createServerFn({ method: "GET" })
