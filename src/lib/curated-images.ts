@@ -98,6 +98,10 @@ export const CURATED_IMAGE_IDS: Record<string, readonly string[]> = {
     "1yf6yDt4TVUxJY_D1IAMl3pG49Havcq6W",
     "1zDDRytBiNInt77FbWL4hvaRq6ba46xtH",
     "1zukuItXeQPOYxyXBBw46Edx35sAUUVmB",
+    "1SuWPmdJY0hI1U62uezJ8meSXDvCwxptK",
+    "1ScwjuJp8SIi-O2vrQBVV3HobwxChmGaR",
+    "157UvtgBqZlXlvsmBLyGxj5icnlAnunMI",
+    "1CHzzcRl6ijBRFHELbEw3VavzwnBsM9Pc",
   ],
   entertainment: [
     "103ZmosBH-ngxaSuVB1Bvh2RhWTwrHc_B",
