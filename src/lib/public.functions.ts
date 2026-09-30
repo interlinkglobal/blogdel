@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { thumbnailCandidates, thumbnailTier } from "./thumbnail-policy";
 import { cachedPublic } from "./public-cache.server";
+import { validateFeedInput } from "./feed-input";
 
 function serverPublic() {
   const url = process.env.SUPABASE_URL!;
@@ -128,7 +129,7 @@ export const getHomepage = createServerFn({ method: "GET" }).handler(() => cache
 }));
 
 export const listArticles = createServerFn({ method: "GET" })
-  .inputValidator((d: { category?: string; subcategory?: string; author?: string; type?: string; q?: string; sort?: "newest"|"oldest"|"relevance"; cursor?: string; perPage?: number }) => d)
+  .inputValidator(validateFeedInput)
   .handler(({ data }) => cachedPublic(`feed:${JSON.stringify(data)}`, 30_000, async () => {
     const { ensureInitialSeed } = await import("./initial-seed.server");
     await cachedPublic("initial-seed", 300_000, ensureInitialSeed);
@@ -329,3 +330,4 @@ export const searchArticles = createServerFn({ method: "GET" })
   const { data: rows } = await query.order("published_at",{ ascending: false }).limit(40);
     return { rows: stripMany(rows as any), q };
   });
+
