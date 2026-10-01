@@ -73,7 +73,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 });
 
 function RootShell({ children }: { children: ReactNode }) {
-  return <html lang="en" suppressHydrationWarning><head><HeadContent /><script dangerouslySetInnerHTML={{ __html: "(() => {\n  try {\n    const stored = localStorage.getItem(\"blogdel-theme\");\n    const mode = stored === \"light\" || stored === \"dark\" || stored === \"system\" ? stored : \"system\";\n    const dark = mode === \"dark\" || (mode === \"system\" && window.matchMedia(\"(prefers-color-scheme: dark)\").matches);\n    document.documentElement.classList.toggle(\"dark\", dark);\n    document.documentElement.dataset.theme = mode;\n  } catch {}\n})();" }} /></head><body>{children}<Scripts /></body></html>;
+  return <html lang="en" suppressHydrationWarning><head><HeadContent /><script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1226051611208488" crossOrigin="anonymous"></script><script dangerouslySetInnerHTML={{ __html: "(() => {\n  try {\n    const stored = localStorage.getItem(\"blogdel-theme\");\n    const mode = stored === \"light\" || stored === \"dark\" || stored === \"system\" ? stored : \"system\";\n    const dark = mode === \"dark\" || (mode === \"system\" && window.matchMedia(\"(prefers-color-scheme: dark)\").matches);\n    document.documentElement.classList.toggle(\"dark\", dark);\n    document.documentElement.dataset.theme = mode;\n  } catch {}\n})();" }} /></head><body>{children}<Scripts /></body></html>;
 }
 
 function RootComponent() {
