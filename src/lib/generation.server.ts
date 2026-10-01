@@ -63,7 +63,7 @@ STRICT: respond with a JSON object ONLY (no markdown, no commentary), matching t
   "keywords": ["up to 12 keywords"],
   "references": [ { "provider": "...", "title": "...", "url": "...", "authority": "primary|secondary|tertiary" } ]
 }
-Rules: never fabricate quotes attributed to real people, do not include placeholder text like TODO or LOREM, do not include the source prompt back in the body, always include the supplied references, keep description a plain sentence (no markdown), never use em dashes, and use British/American English consistently.`;
+Rules: never fabricate quotes attributed to real people, statistics, named examples, or specific factual claims. Use only information supported by supplied context; when evidence is thin, explain the limits and avoid asserting unsupported details. Do not include placeholder text like TODO or LOREM, do not include the source prompt back in the body, always include the supplied references unchanged, write a specific and useful article rather than generic filler, keep description a plain sentence (no markdown), never use em dashes, and use British/American English consistently.`;
 
 function buildUserPrompt(input: Input): string {
   return [
@@ -260,6 +260,5 @@ export async function runGeneration(opts: GenerationOptions): Promise<Output> {
 
 function finalize(out: Output, input: Input): Output {
   const slug = slugify(out.slug || out.title, { lower: true, strict: true }).slice(0, 90) || "untitled";
-  const refs = out.references?.length ? out.references : input.references;
-  return { ...out, slug, references: refs };
+  return { ...out, slug, references: input.references };
 }

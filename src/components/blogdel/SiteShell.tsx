@@ -146,7 +146,7 @@ export function SiteHeader() {
               <nav className="mt-8 flex flex-col gap-1 text-base">
                 <Link to="/blogs" onClick={clearHeaderSearch} className="rounded-lg px-3 py-2 transition-colors hover:bg-muted/70">All articles</Link>
                 <Link to="/about" className="rounded-lg px-3 py-2 transition-colors hover:bg-muted/70">About</Link>
-                <Link to="/disclosure" className="rounded-lg px-3 py-2 transition-colors hover:bg-muted/70">AI disclosure</Link>
+                <Link to="/disclosure" className="rounded-lg px-3 py-2 transition-colors hover:bg-muted/70">AI disclosure</Link>\n                <Link to="/contact" className="rounded-lg px-3 py-2 transition-colors hover:bg-muted/70">Contact and corrections</Link>\n                <Link to="/privacy-policy" className="rounded-lg px-3 py-2 transition-colors hover:bg-muted/70">Privacy policy</Link>
               </nav>
               {!installed && (
                 <button type="button" onClick={handleInstall}
@@ -227,6 +227,8 @@ export function SiteFooter() {
           <div className="flex flex-wrap gap-x-6 gap-y-2">
             <Link to="/about" className="hover:text-foreground">About</Link>
             <Link to="/disclosure" className="hover:text-foreground">AI disclosure</Link>
+            <Link to="/contact" className="hover:text-foreground">Contact and corrections</Link>
+            <Link to="/privacy-policy" className="hover:text-foreground">Privacy policy</Link>
             <Link to="/blogs" className="hover:text-foreground">All articles</Link>
           </div>
         </div>

@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { sourceInputSchema, REFERENCE_MINIMA } from "@/lib/article-schema";
+import { checkArticleQuality } from "@/lib/article-quality";
 import slugify from "slugify";
 
 function admin() {
@@ -61,7 +62,7 @@ async function processCategory(sb: ReturnType<typeof admin>, sys: any, category:
     .eq("category_id", category.id)
     .eq("status", "published")
     .order("published_at", { ascending: false })
-    .limit(8);
+    .limit(30);
 
   const recentTitles = (recent ?? []).map((r: any) => r.title).filter(Boolean);
   const basePrompt = source.prompt_template ?? `Write an original ${category.label} article.`;
@@ -69,7 +70,8 @@ async function processCategory(sb: ReturnType<typeof admin>, sys: any, category:
     basePrompt,
     "Choose a fresh, materially different angle suitable for an evergreen publication.",
     recentTitles.length ? `Do not repeat these recent Blogdel topics or theses: ${recentTitles.join(" | ")}` : "",
-    "Avoid invented quotes, invented statistics, and claims of current events you cannot support from the supplied references.",
+    "Avoid invented quotes, invented statistics, named examples, and factual claims you cannot support from supplied evidence.",
+    "Write at least 650 words with at least three useful sections. Prefer precise, verifiable explanation to generic filler.",
   ].filter(Boolean).join("\n\n");
 
   const references = refsFor(category.slug, source);
@@ -150,11 +152,10 @@ async function processCategory(sb: ReturnType<typeof admin>, sys: any, category:
 
   try {
     const article = await runGeneration({ input, categorySlug: category.slug, onProviderEvent });
-    if (article.body_markdown.length < (sys.min_body_length ?? 500)) throw new Error("body too short");
+    const quality = checkArticleQuality(article, input, recentTitles);
 
     const words = article.body_markdown.split(/\s+/).filter(Boolean).length;
     const slug = slugify(article.slug, { lower: true, strict: true }).slice(0, 80) + "-" + Math.random().toString(36).slice(2, 6);
-    const status = sys.mode === "publishing_paused" ? "review" : "published";
 
     const { data: articleRow, error: insErr } = await sb.from("articles").insert({
       source_item_id: item.id,
@@ -181,7 +182,7 @@ async function processCategory(sb: ReturnType<typeof admin>, sys: any, category:
     if (insErr || !articleRow) throw insErr ?? new Error("article insert failed");
 
     const image = await resolveFeaturedImage({ title: article.title, category: category.slug, body: article.body_markdown, articleId: articleRow.id, keywords: article.keywords, references: article.references }, sb);
-    const finalStatus = sys.mode === "publishing_paused" ? "review" : "published";
+    const finalStatus = sys.mode === "publishing_paused" || !quality.publishable ? "review" : "published";
     await (sb.from("articles") as any).update({ featured_image_url: image?.url ?? null, featured_image_alt: image?.alt ?? article.title, image_source_type: image?.sourceType ?? "editorial-fallback", image_provider: image?.provider ?? "blogdel", image_model: image?.model ?? null, status: finalStatus, published_at: finalStatus === "published" ? new Date().toISOString() : null }).eq("id", articleRow.id);
 
     if (article.references?.length) {
@@ -197,13 +198,13 @@ async function processCategory(sb: ReturnType<typeof admin>, sys: any, category:
 
     const now = new Date().toISOString();
     await Promise.all([
-      sb.from("delegation_jobs").update({ status: "completed", completed_at: now, output_payload: article as any }).eq("id", job.id),
+      sb.from("delegation_jobs").update({ status: "completed", completed_at: now, output_payload: { ...article, quality: { publishable: quality.publishable, reasons: quality.reasons, word_count: quality.wordCount } } as any }).eq("id", job.id),
       sb.from("source_items").update({ status: "processed" }).eq("id", item.id),
       sb.from("authors").update({ last_used_at: now }).eq("id", author.id),
       sb.from("sources").update({ last_run_at: now, collected_count: (source.collected_count ?? 0) + 1 }).eq("id", source.id),
     ]);
 
-    return { category: category.slug, ok: true, article: articleRow.id, status: finalStatus, latency_ms: Date.now() - started, reason };
+    return { category: category.slug, ok: true, article: articleRow.id, status: finalStatus, quality_reasons: quality.reasons, latency_ms: Date.now() - started, reason };
   } catch (e: any) {
     const now = new Date().toISOString();
     await Promise.all([
