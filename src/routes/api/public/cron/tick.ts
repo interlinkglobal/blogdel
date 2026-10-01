@@ -150,11 +150,10 @@ async function processCategory(sb: ReturnType<typeof admin>, sys: any, category:
 
   try {
     const article = await runGeneration({ input, categorySlug: category.slug, onProviderEvent });
-    if (article.body_markdown.length < (sys.min_body_length ?? 500)) throw new Error("body too short");
+    const quality = checkArticleQuality(article, input, recentTitles);
 
     const words = article.body_markdown.split(/\s+/).filter(Boolean).length;
     const slug = slugify(article.slug, { lower: true, strict: true }).slice(0, 80) + "-" + Math.random().toString(36).slice(2, 6);
-    const status = sys.mode === "publishing_paused" ? "review" : "published";
 
     const { data: articleRow, error: insErr } = await sb.from("articles").insert({
       source_item_id: item.id,
