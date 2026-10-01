@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
-import { sourceInputSchema, REFERENCE_MINIMA } from "@/lib/article-schema";\nimport { checkArticleQuality } from "@/lib/article-quality";
+import { sourceInputSchema, REFERENCE_MINIMA } from "@/lib/article-schema";
+import { checkArticleQuality } from "@/lib/article-quality";
 import slugify from "slugify";
 
 function admin() {
@@ -69,7 +70,8 @@ async function processCategory(sb: ReturnType<typeof admin>, sys: any, category:
     basePrompt,
     "Choose a fresh, materially different angle suitable for an evergreen publication.",
     recentTitles.length ? `Do not repeat these recent Blogdel topics or theses: ${recentTitles.join(" | ")}` : "",
-    "Avoid invented quotes, invented statistics, named examples, and factual claims you cannot support from supplied evidence.",\n    "Write at least 650 words with at least three useful sections. Prefer precise, verifiable explanation to generic filler.",
+    "Avoid invented quotes, invented statistics, named examples, and factual claims you cannot support from supplied evidence.",
+    "Write at least 650 words with at least three useful sections. Prefer precise, verifiable explanation to generic filler.",
   ].filter(Boolean).join("\n\n");
 
   const references = refsFor(category.slug, source);
