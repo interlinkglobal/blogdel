@@ -146,7 +146,7 @@ export function SiteHeader() {
               <nav className="mt-8 flex flex-col gap-1 text-base">
                 <Link to="/blogs" onClick={clearHeaderSearch} className="rounded-lg px-3 py-2 transition-colors hover:bg-muted/70">All articles</Link>
                 <Link to="/about" className="rounded-lg px-3 py-2 transition-colors hover:bg-muted/70">About</Link>
-                <Link to="/disclosure" className="rounded-lg px-3 py-2 transition-colors hover:bg-muted/70">AI disclosure</Link>
+                <Link to="/disclosure" className="rounded-lg px-3 py-2 transition-colors hover:bg-muted/70">AI disclosure</Link>\n                <Link to="/contact" className="rounded-lg px-3 py-2 transition-colors hover:bg-muted/70">Contact and corrections</Link>\n                <Link to="/privacy-policy" className="rounded-lg px-3 py-2 transition-colors hover:bg-muted/70">Privacy policy</Link>
               </nav>
               {!installed && (
                 <button type="button" onClick={handleInstall}
