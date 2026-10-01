@@ -260,6 +260,5 @@ export async function runGeneration(opts: GenerationOptions): Promise<Output> {
 
 function finalize(out: Output, input: Input): Output {
   const slug = slugify(out.slug || out.title, { lower: true, strict: true }).slice(0, 90) || "untitled";
-  const refs = out.references?.length ? out.references : input.references;
-  return { ...out, slug, references: refs };
+  return { ...out, slug, references: input.references };
 }
