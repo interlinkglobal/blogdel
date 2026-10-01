@@ -227,6 +227,8 @@ export function SiteFooter() {
           <div className="flex flex-wrap gap-x-6 gap-y-2">
             <Link to="/about" className="hover:text-foreground">About</Link>
             <Link to="/disclosure" className="hover:text-foreground">AI disclosure</Link>
+            <Link to="/contact" className="hover:text-foreground">Contact and corrections</Link>
+            <Link to="/privacy-policy" className="hover:text-foreground">Privacy policy</Link>
             <Link to="/blogs" className="hover:text-foreground">All articles</Link>
           </div>
         </div>
