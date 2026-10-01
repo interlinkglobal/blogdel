@@ -28,7 +28,7 @@ async function sitemapResponse(): Promise<Response> {
         if (error) throw error;
         for (const article of data ?? []) {
           if (typeof article.slug === "string" && /^[a-z0-9-]{1,120}$/.test(article.slug)) {
-            paths.push(`/article/${article.slug}`);
+            paths.push(`/blogs/${article.slug}`);
           }
         }
         if (!data || data.length < pageSize) break;
